@@ -12,6 +12,7 @@ namespace Crew.App
         private readonly string _appDataPath;
         private readonly Services.DataService _dataService;
         private readonly Services.AiService _aiService;
+        private readonly Services.OrchestrationService _orchestrationService;
 
         public MainWindow()
         {
@@ -33,6 +34,7 @@ namespace Crew.App
 
             _dataService = new Services.DataService(_appDataPath);
             _aiService = new Services.AiService();
+            _orchestrationService = new Services.OrchestrationService(_aiService, _dataService);
 
             InitializeWebView();
         }
@@ -98,6 +100,7 @@ namespace Crew.App
                     "publishAgent" => _dataService.PublishAgentToMarketplace(payload.Data),
                     "unpublishAgent" => _dataService.UnpublishAgent(payload.Id),
                     "getListing" => _dataService.GetListingForAgent(payload.Id),
+                    "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
                     _ => throw new ArgumentException($"Unknown action: {payload.Action}")
                 };
 

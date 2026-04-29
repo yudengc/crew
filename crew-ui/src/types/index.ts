@@ -36,15 +36,27 @@ export interface TeamMember {
   isManager: boolean;
 }
 
+export interface SubTask {
+  id: string;
+  title: string;
+  assignedAgentId: string;
+  assignedAgentName: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  result: string;
+}
+
 export interface TaskItem {
   id: string;
   title: string;
   description: string;
   teamId: string;
+  teamMembers: TeamMember[];
   status: 'pending' | 'in_progress' | 'completed';
   result: string;
   createdAt: string;
   completedAt?: string;
+  subTasks: SubTask[];
+  phase: 'idle' | 'decomposing' | 'executing' | 'synthesizing' | 'completed';
 }
 
 export interface MarketplaceAgent {

@@ -283,16 +283,29 @@ namespace Crew.App.Services
         public bool IsManager { get; set; }
     }
 
+    public class SubTask
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = "";
+        public string AssignedAgentId { get; set; } = "";
+        public string AssignedAgentName { get; set; } = "";
+        public string Status { get; set; } = "pending";
+        public string Result { get; set; } = "";
+    }
+
     public class TaskItem
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
         public string TeamId { get; set; } = "";
+        public List<TeamMember> TeamMembers { get; set; } = new();
         public string Status { get; set; } = "pending";
         public string Result { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? CompletedAt { get; set; }
+        public List<SubTask> SubTasks { get; set; } = new();
+        public string Phase { get; set; } = "idle";
     }
 
     public class ChatSession

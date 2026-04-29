@@ -38,6 +38,7 @@ interface AppState {
   publishAgent: (agentId: string, price: number) => Promise<boolean>;
   unpublishAgent: (agentId: string) => Promise<boolean>;
   getListing: (agentId: string) => Promise<ListingItem | null>;
+  executeTaskOrchestrated: (taskId: string) => Promise<TaskItem | null>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -157,6 +158,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       return true;
     }
     return false;
+  },
+
+  executeTaskOrchestrated: async (taskId) => {
+    const task = get().tasks.find(t => t.id === taskId);
+    if (!task) return null;
+
+    const team = get().teams.find(t => t.id === task.teamId);
+    if (!team) return null;
+
+    // Build task payload with teamMembers embedded
+    const taskPayload = {
+      ...task,
+      teamMembers: team.members,
+    };
+
+    const result = await bridgeSend('executeTaskOrchestrated', JSON.stringify(taskPayload));
+    if (result && typeof result === 'object' && 'task' in result) {
+      const updatedTask = (result as { task: TaskItem }).task;
+      await get().loadTasks();
+      return updatedTask;
+    }
+    if (result && typeof result === 'object' && 'error' in result) {
+      throw new Error((result as { error: string }).error);
+    }
+    return null;
   },
 
   saveSettings: async (settings) => {
