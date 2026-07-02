@@ -10,14 +10,16 @@ export default function Teams() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [managerId, setManagerId] = useState('');
   const [creating, setCreating] = useState(false);
 
   const create = async () => {
     if (!name.trim()) { toast.error('请输入团队名称'); return; }
+    if (selected.length > 0 && !managerId) { toast.error('请指定团队管理者'); return; }
     setCreating(true);
     const team: Team = {
       id: crypto.randomUUID(), name: name.trim(),
-      members: selected.map(id => ({ agentId: id, role: 'member', isManager: false })),
+      members: selected.map(id => ({ agentId: id, role: 'member', isManager: id === managerId })),
       createdAt: new Date().toISOString(),
     };
     const ok = await saveTeam(team);
@@ -66,16 +68,31 @@ export default function Teams() {
           <h3 className="font-semibold text-gray-900 mb-4">创建新团队</h3>
           <input type="text" placeholder="团队名称" value={name} onChange={e => setName(e.target.value)}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 mb-4 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
-          <p className="text-sm text-gray-500 mb-2">选择初始成员：</p>
-          <div className="flex flex-wrap gap-2 mb-4">
+          <p className="text-sm text-gray-500 mb-2">选择初始成员（点击选择）：</p>
+          <div className="flex flex-wrap gap-2 mb-3">
             {agents.length === 0 && <span className="text-sm text-gray-400">暂无可用 Agent</span>}
             {agents.map(a => (
-              <button key={a.id} onClick={() => setSelected(prev => prev.includes(a.id) ? prev.filter(x => x !== a.id) : [...prev, a.id])}
+              <button key={a.id} onClick={() => {
+                setSelected(prev => prev.includes(a.id) ? prev.filter(x => x !== a.id) : [...prev, a.id]);
+                if (!managerId) setManagerId(a.id); // auto-set first as manager
+              }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   selected.includes(a.id) ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}>{a.name}</button>
             ))}
           </div>
+          {selected.length > 0 && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-600 mb-1.5 block">👑 团队管理者（负责接收默认消息和派发任务）：</label>
+              <select value={managerId} onChange={e => setManagerId(e.target.value)}
+                className="w-full px-4 py-2 border border-amber-300 rounded-xl bg-amber-50 text-gray-700 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400">
+                <option value="">-- 选择管理者 --</option>
+                {agents.filter(a => selected.includes(a.id)).map(a => (
+                  <option key={a.id} value={a.id}>{a.name} — {a.description}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={create} disabled={!name.trim() || creating}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all">{creating ? '创建中...' : '创建'}</button>
@@ -96,7 +113,12 @@ export default function Teams() {
             <div key={team.id} className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    {team.name}
+                    {team.members.length > 0 && !team.members.some(m => m.isManager) && (
+                      <span className="ml-2 text-xs text-red-500 font-normal bg-red-50 px-2 py-0.5 rounded">⚠️ 未指定管理者</span>
+                    )}
+                  </h3>
                   <p className="text-sm text-gray-400">{team.members.length} 名成员</p>
                 </div>
                 <div className="flex gap-2">
@@ -114,8 +136,10 @@ export default function Teams() {
                     if (!agent) return null;
                     return (
                       <div key={m.agentId} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl text-sm group hover:border-gray-200 transition-all">
-                        <span className="font-medium text-gray-700">{agent.name}</span>
-                        <span className="text-xs text-gray-400">{m.isManager ? '管理员' : '成员'}</span>
+                        <span className="font-medium text-gray-700">{m.isManager ? '👑 ' : ''}{agent.name}</span>
+                        <span className={`text-xs px-1 py-0.5 rounded ${m.isManager ? 'bg-amber-100 text-amber-700 font-medium' : 'text-gray-400'}`}>
+                          {m.isManager ? '管理者' : '成员'}
+                        </span>
                         <button onClick={() => removeMember(team.id, m.agentId)}
                           className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-0.5 font-bold">×</button>
                       </div>
