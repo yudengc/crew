@@ -20,7 +20,8 @@ namespace Crew.App.Services
             _jsonOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
             EnsureDataFiles();
         }

@@ -121,7 +121,11 @@ namespace Crew.App.Services
 
         private void PersistTaskProgress(TaskItem task)
         {
-            _dataService.SaveTask(JsonSerializer.Serialize(task, new JsonSerializerOptions { WriteIndented = true }));
+            _dataService.SaveTask(JsonSerializer.Serialize(task, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }));
         }
 
         private async Task<(List<SubTask> subTasks, string? error)> DecomposeTaskAsync(
