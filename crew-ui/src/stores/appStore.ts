@@ -134,9 +134,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     return false;
   },
 
-getSessions: async (teamId) => { const data = await bridgeSend('getSessions', teamId); return (data as ChatSession[]) || []; },  createSession: async (teamId, name) => { const data = await bridgeSend('createSession', JSON.stringify({ teamId, name })); return data as ChatSession | null; },  getSessionMessages: async (sessionId) => { const data = await bridgeSend('getSession', sessionId); if (data && typeof data === 'object') { const s = data as ChatSession; return s.messages || []; } return []; },
-  getWorkspace: async (agentId, teamId) => {
+getSessions: async (teamId) => { const data = await bridgeSend('getSessions', teamId); return (data as ChatSession[]) || []; },
 deleteSession: async (sessionId) => { const data = await bridgeSend('deleteSession', sessionId); return data === true || data === 'true'; },  renameSession: async (sessionId, name) => { const data = await bridgeSend('renameSession', JSON.stringify({ id: sessionId, name })); return data as ChatSession | null; },
+  createSession: async (teamId, name) => { const data = await bridgeSend('createSession', JSON.stringify({ teamId, name })); return data as ChatSession | null; },  getSessionMessages: async (sessionId) => { const data = await bridgeSend('getSession', sessionId); if (data && typeof data === 'object') { const s = data as ChatSession; return s.messages || []; } return []; },
+  getWorkspace: async (agentId, teamId) => {
     const data = await bridgeSend('getWorkspace', JSON.stringify({ agentId, teamId }));
     if (data) return data as AgentWorkspace;
     return null;
