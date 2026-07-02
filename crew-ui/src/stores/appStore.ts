@@ -32,7 +32,7 @@ interface AppState {
   streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>) => Promise<string>;
   cancelTask: (taskId: string) => Promise<boolean>;
   getWorkspace: (agentId: string, teamId: string) => Promise<AgentWorkspace | null>;
-  saveWorkspaceMessage: (agentId: string, teamId: string, role: string, content: string) => Promise<void>;
+  saveWorkspaceMessage: (agentId: string, teamId: string, role: string, content: string, sessionId?: string, sessionName?: string) => Promise<void>;
 
   // 新功能
   addMemberToTeam: (teamId: string, agentId: string, role?: string) => Promise<boolean>;
@@ -143,8 +143,8 @@ deleteSession: async (sessionId) => { const data = await bridgeSend('deleteSessi
     return null;
   },
 
-  saveWorkspaceMessage: async (agentId, teamId, role, content) => {
-    await bridgeSend('saveWorkspaceMessage', JSON.stringify({ agentId, teamId, role, content }));
+  saveWorkspaceMessage: async (agentId, teamId, role, content, sessionId, sessionName) => {
+    await bridgeSend('saveWorkspaceMessage', JSON.stringify({ agentId, teamId, role, content, sessionId, sessionName }));
   },
 
   saveTeam: async (team) => {

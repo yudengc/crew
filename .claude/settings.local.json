@@ -72,7 +72,14 @@
       "Bash(curl -s -o /dev/null -w \"Vite: HTTP %{http_code}\\\\n\" http://localhost:5173)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9876/index.html)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9877/index.html)",
-      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9878/index.html)"
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9878/index.html)",
+      "Bash(sed -i '216s/.*/              saveWorkspaceMessage\\(agent.id, teamId, '\\\\''user'\\\\'', taskText\\).catch\\(\\(\\) => {}\\);/' views/TeamChat.tsx)",
+      "Bash(sed -i 's/saveWorkspaceMessage: \\(agentId: string, teamId: string, role: string, content: string\\)/saveWorkspaceMessage: \\(agentId: string, teamId: string, role: string, content: string, sessionId?: string, sessionName?: string\\)/' stores/appStore.ts)",
+      "Bash(sed -i 's/saveWorkspaceMessage: async \\(agentId, teamId, role, content\\)/saveWorkspaceMessage: async \\(agentId, teamId, role, content, sessionId, sessionName\\)/' stores/appStore.ts)",
+      "Bash(sed -i 's/JSON.stringify\\({ agentId, teamId, role, content }\\)/JSON.stringify\\({ agentId, teamId, role, content, sessionId, sessionName }\\)/' stores/appStore.ts)",
+      "Bash(sed -i '216s/saveWorkspaceMessage\\(agent.id, teamId, '\\\\''user'\\\\'', taskText\\)/saveWorkspaceMessage\\(agent.id, teamId, '\\\\''user'\\\\'', taskText, sessionId, __TRACKED_VAR__\\)/' TeamChat.tsx)",
+      "Bash(sed -i 's/saveWorkspaceMessage\\(aid, teamId, '\\\\''user'\\\\'', taskMsg\\)/saveWorkspaceMessage\\(aid, teamId, '\\\\''user'\\\\'', taskMsg, sessionId, __TRACKED_VAR__\\)/' TeamChat.tsx)",
+      "Bash(sed -i 's/await saveWorkspaceMessage\\(aid, teamId, '\\\\''assistant'\\\\'', String\\(data.result\\)\\)/await saveWorkspaceMessage\\(aid, teamId, '\\\\''assistant'\\\\'', String\\(data.result\\), sessionId, __TRACKED_VAR__\\)/' TeamChat.tsx)"
     ]
   }
 }

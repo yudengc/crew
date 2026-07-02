@@ -481,6 +481,8 @@ namespace Crew.App.Services
                 {
                     Role = role,
                     Content = content,
+                    SessionId = incoming.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null,
+                    SessionName = incoming.TryGetProperty("sessionName", out var sn) ? sn.GetString() : null,
                     Timestamp = DateTime.Now
                 });
 
@@ -616,6 +618,8 @@ namespace Crew.App.Services
     {
         public string Role { get; set; } = "user"; // system | user | assistant
         public string Content { get; set; } = "";
+        public string? SessionId { get; set; }
+        public string? SessionName { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 

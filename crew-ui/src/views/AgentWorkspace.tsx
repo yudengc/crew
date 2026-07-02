@@ -160,8 +160,13 @@ export default function AgentWorkspaceView() {
                     ? 'bg-gray-100 text-gray-500 text-xs italic'
                     : 'bg-white border border-gray-200 text-gray-700 rounded-bl-md shadow-sm'
                 }`}>
-                  <div className="text-[10px] font-semibold mb-1 opacity-60">
-                    {m.role === 'user' ? '任务' : m.role === 'assistant' ? selected.agentName : '系统'}
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-[10px] font-semibold opacity-60">
+                      {m.role === 'user' ? '任务' : m.role === 'assistant' ? selected.agentName : '系统'}
+                    </span>
+                    {m.sessionName && (
+                      <span className="text-[9px] px-1 py-0.5 bg-blue-50 text-blue-600 rounded">📋 {m.sessionName}</span>
+                    )}
                   </div>
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</p>
                 </div>

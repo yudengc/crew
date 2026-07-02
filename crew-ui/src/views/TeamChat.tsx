@@ -213,8 +213,7 @@ export default function TeamChat() {
             const needsWorkspace = /需要|预计|分析|处理|执行|查找|检查|实现|编写|设计/.test(assessment);
             if (needsWorkspace) {
               const taskText = cleanText || input;
-              saveWorkspaceMessage(agent.id, teamId, 'user',
-                `[协作群 @任务]\n${taskText}`).catch(() => {});
+              saveWorkspaceMessage(agent.id, teamId, 'user', taskText, sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
               const { bridgeSend } = await import('../utils/bridge');
               bridgeSend('runAgentInWorkspace', JSON.stringify({
                 agentId: agent.id, teamId, task: taskText, context: history
@@ -313,7 +312,7 @@ export default function TeamChat() {
           // Create workspace task
           const isMgr = team.members.find(m => m.agentId === agent.id)?.isManager;
           const taskMsg = `[${isMgr ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
-          saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
+          saveWorkspaceMessage(aid, teamId, 'user', taskMsg, sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
 
           // Agent acknowledges briefly in chat
           setThinking(prev => [...prev, target.name]);
@@ -337,7 +336,7 @@ export default function TeamChat() {
             const data = result as Record<string, unknown> | null;
             if (data?.result) {
               // Save thinking to workspace
-              await saveWorkspaceMessage(aid, teamId, 'assistant', String(data.result)).catch(() => {});
+              await saveWorkspaceMessage(aid, teamId, 'assistant', String(data.result), sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
               // Post execution summary to team chat
               const summary = String(data.result).length > 200
                 ? String(data.result).slice(0, 200) + '...（详见工作区）'

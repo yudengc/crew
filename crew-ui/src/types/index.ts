@@ -104,6 +104,8 @@ export interface Settings {
 export interface WorkspaceMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  sessionId?: string;
+  sessionName?: string;
   timestamp: string;
 }
 
