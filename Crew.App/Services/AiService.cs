@@ -987,10 +987,10 @@ namespace Crew.App.Services
             }
             sb.AppendLine();
             sb.AppendLine("工作方式：");
-            sb.AppendLine("1. 分析任务，判断是否需要使用工具");
-            sb.AppendLine("2. 如果需要信息或执行操作，调用相应的工具");
-            sb.AppendLine("3. 根据工具结果继续推理，直到能够给出完整答案");
-            sb.AppendLine("4. 如果不需要工具，直接给出最终答案");
+            sb.AppendLine("1. 先判断：这是简单问答还是需要工具的任务？");
+            sb.AppendLine("2. 简单问答直接回复，不要调用任何工具");
+            sb.AppendLine("3. 只有确实需要读取文件、执行命令、搜索信息时才使用工具");
+            sb.AppendLine("4. 调用工具后根据结果继续推理，然后给出最终答案");
             sb.AppendLine();
             sb.AppendLine($"沟通风格：{request.CommunicationStyle ?? "专业简洁"}");
             sb.AppendLine($"决策方式：{request.DecisionMaking ?? "理性分析"}");
