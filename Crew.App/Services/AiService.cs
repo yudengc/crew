@@ -15,6 +15,10 @@ namespace Crew.App.Services
     {
         private readonly HttpClient _httpClient;
         private readonly Dictionary<string, CancellationTokenSource> _cancellations = new();
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         public AiService()
         {
@@ -29,7 +33,7 @@ namespace Crew.App.Services
         {
             try
             {
-                var settings = JsonSerializer.Deserialize<AppSettings>(settingsJson);
+                var settings = JsonSerializer.Deserialize<AppSettings>(settingsJson, _jsonOptions);
                 if (settings == null) return Error("无效的设置");
 
                 if (string.IsNullOrEmpty(settings.ClaudeApiKey) && settings.AiProvider == "claude")
@@ -39,7 +43,7 @@ namespace Crew.App.Services
                 if (string.IsNullOrEmpty(settings.DeepSeekApiKey) && settings.AiProvider == "deepseek")
                     return Error("请先在设置中配置 DeepSeek API Key");
 
-                var request = JsonSerializer.Deserialize<AiRequest>(data ?? "{}");
+                var request = JsonSerializer.Deserialize<AiRequest>(data ?? "{}", _jsonOptions);
                 if (request == null) return Error("无效的请求");
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));

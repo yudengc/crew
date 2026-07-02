@@ -319,8 +319,9 @@ if(window.chrome&&window.chrome.webview)init();else window.addEventListener('DOM
             var streamId = payload.StreamId ?? Guid.NewGuid().ToString();
             try
             {
-                var settings = JsonSerializer.Deserialize<AppSettings>(_dataService.GetSettings());
-                var request = JsonSerializer.Deserialize<AiRequest>(payload.Data ?? "{}");
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var settings = JsonSerializer.Deserialize<AppSettings>(_dataService.GetSettings(), options);
+                var request = JsonSerializer.Deserialize<AiRequest>(payload.Data ?? "{}", options);
 
                 if (settings == null || request == null)
                 {

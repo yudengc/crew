@@ -70,7 +70,7 @@ export default function TeamChat() {
       agentName: '我', content: input, isUser: true,
       timestamp: new Date().toISOString(),
     };
-    await sendChatMessage(teamId, 'user', '我', input, true);
+    await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id);
     setMsgs(prev => [...prev, userMsg]);
     setInput('');
     if (busy) return;
@@ -125,7 +125,7 @@ export default function TeamChat() {
             agentName: agent.name, content: fullText, isUser: false,
             timestamp: new Date().toISOString(),
           };
-          await sendChatMessage(teamId, agent.id, agent.name, fullText, false);
+          await sendChatMessage(teamId, agent.id, agent.name, fullText, false, am.id);
           return am;
         }
         return null;
