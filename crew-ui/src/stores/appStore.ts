@@ -58,7 +58,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     hasCompletedOnboarding: false,
   },
   currentView: 'onboarding',
-  isLoading: false,
+  isLoading: true,
   error: null,
 
   setView: (view) => set({ currentView: view }),
