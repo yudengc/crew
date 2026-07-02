@@ -12,14 +12,12 @@ const AVATAR_COLORS = [
   'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500',
   'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-teal-500',
 ];
-
 function getAvatarColor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Parse @mentions: returns { targetIds, cleanText }
 function parseMentions(text: string, agents: Agent[]) {
   const mentionRegex = /@(\S+)/g;
   const mentioned = new Set<string>();
@@ -54,7 +52,6 @@ export default function TeamChat() {
 
   useEffect(() => { if (teamId) load(); }, [teamId]);
 
-  // Poll every 3s
   useEffect(() => {
     if (!teamId) return;
     const id = setInterval(() => {
@@ -78,8 +75,7 @@ export default function TeamChat() {
   useEffect(() => { scrollDown(); }, [msgs.length, streaming]);
 
   const cancel = () => {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
+    controllerRef.current?.abort(); controllerRef.current = null;
     setBusy(false); setThinking([]); setStreaming([]);
     toast.info('已停止生成');
   };
@@ -103,24 +99,21 @@ export default function TeamChat() {
   const send = async () => {
     if (!input.trim() || !teamId || !team || sendLockRef.current) return;
     sendLockRef.current = true;
-
     const { targetAgentIds, cleanText } = parseMentions(input.trim(), agents);
     let targets = team.members.filter(m => {
       if (targetAgentIds.length > 0) return targetAgentIds.includes(m.agentId);
       return m.isManager;
     });
-
     if (targets.length === 0 && targetAgentIds.length > 0) {
       toast.error('未找到匹配的 Agent'); sendLockRef.current = false; return;
     }
     if (targets.length === 0 && !manager) {
-      toast.error('该团队没有管理者，请用 @Agent名 指定'); sendLockRef.current = false; return;
+      toast.error('该团队没有管理者'); sendLockRef.current = false; return;
     }
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(), teamId, agentId: 'user',
-      agentName: '我', content: input, isUser: true,
-      timestamp: new Date().toISOString(),
+      agentName: '我', content: input, isUser: true, timestamp: new Date().toISOString(),
     };
     await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id);
     setMsgs(prev => [...prev, userMsg]); setInput('');
@@ -128,17 +121,13 @@ export default function TeamChat() {
 
     setBusy(true);
     const controller = new AbortController(); controllerRef.current = controller;
-
-    const history = [...msgs, userMsg].slice(-8)
-      .map(m => `${m.agentName}: ${m.content}`).join('\n');
+    const history = [...msgs, userMsg].slice(-8).map(m => `${m.agentName}: ${m.content}`).join('\n');
 
     const promises = targets.map(async m => {
       const agent = agents.find(a => a.id === m.agentId);
       if (!agent) return null;
-
       const streamId = crypto.randomUUID();
       setThinking(prev => [...prev, agent.name]);
-
       const streamMsg: StreamingMsg = {
         id: streamId, agentId: agent.id, agentName: agent.name,
         avatar: agent.avatar, content: '', timestamp: new Date().toISOString(), done: false,
@@ -146,34 +135,28 @@ export default function TeamChat() {
       setStreaming(prev => [...prev, streamMsg]);
 
       try {
-        // Agent context prompt: team chat is for progress sharing, not full thinking
         const isManager = m.isManager;
         const prompt = targetAgentIds.length > 0
-          ? `你是团队「${team.name}」的成员「${agent.name}」，${agent.description || '团队成员'}。\n\n团队成员在协作群中 @了你。以下是最近对话：\n${history}\n\n用户对你说：「${cleanText}」\n\n请在协作群中回复用户。简要说明你当前的处理进展、关键发现或遇到的问题。80-150字，直接回复。`
+          ? `你是团队「${team.name}」的成员「${agent.name}」，${agent.description || '团队成员'}。\n\n团队成员在协作群中 @了你：\n${history}\n\n用户对你说：「${cleanText}」\n\n请在协作群中回复用户。80-150字，直接回复。`
           : isManager
-            ? `你是团队「${team.name}」的管理者「${agent.name}」，${agent.description || '团队管理者'}。\n\n协作群最近对话：\n${history}\n\n作为管理者，请协调回复。如果涉及具体任务，说明如何分工给团队成员。80-150字，直接回复。`
-            : `你是「${agent.name}」，${agent.description || '团队成员'}。协作群对话：\n${history}\n\n请报告你当前的工作进展或对讨论的见解。80-150字，直接回复。`;
+            ? `你是团队「${team.name}」的管理者「${agent.name}」，${agent.description || '团队管理者'}。\n\n协作群最近对话：\n${history}\n\n请协调回复。如果涉及具体任务，说明如何分工。80-150字，直接回复。`
+            : `你是「${agent.name}」，${agent.description || '团队成员'}。\n${history}\n\n报告你的工作进展。80-150字。`;
 
         const fullText = await streamCallAi(
           prompt,
           (chunk) => {
             if (controller.signal.aborted) return;
-            setStreaming(prev => prev.map(s =>
-              s.id === streamId ? { ...s, content: s.content + chunk } : s));
+            setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, content: s.content + chunk } : s));
           },
           agent.config,
         );
-
         if (controller.signal.aborted) return null;
-
         setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, done: true } : s));
-
         if (fullText.trim()) {
           const am: ChatMessage = {
             id: crypto.randomUUID(), teamId, agentId: agent.id,
             agentName: agent.name, avatar: agent.avatar,
-            content: fullText, isUser: false,
-            timestamp: new Date().toISOString(),
+            content: fullText, isUser: false, timestamp: new Date().toISOString(),
           };
           await sendChatMessage(teamId, agent.id, agent.name, fullText, false, am.id, agent.avatar);
           return am;
@@ -191,8 +174,7 @@ export default function TeamChat() {
 
     const results = await Promise.all(promises);
     if (!controller.signal.aborted) setMsgs(prev => [...prev, ...results.filter(Boolean) as ChatMessage[]]);
-    setBusy(false); controllerRef.current = null;
-    sendLockRef.current = false;
+    setBusy(false); controllerRef.current = null; sendLockRef.current = false;
     setTimeout(scrollDown, 100);
   };
 
@@ -205,8 +187,6 @@ export default function TeamChat() {
     return teamAgents.filter(a => !partial || a.name.toLowerCase().includes(partial));
   };
 
-  // ── Render ──────────────────────────────────────────────
-
   const AvatarCircle = ({ name, avatar, size = 'md' }: { name: string; avatar?: string; size?: 'sm' | 'md' }) => (
     <div className={`${size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs'} rounded-full flex items-center justify-center text-white font-bold shrink-0 ${getAvatarColor(name)}`}>
       {avatar || name.charAt(0)}
@@ -214,80 +194,81 @@ export default function TeamChat() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-1px)]">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white">
-        <select value={teamId} onChange={e => setTeamId(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white text-sm">
-          <option value="">选择团队</option>
+    <div className="flex h-[calc(100vh-1px)]">
+      {/* Team list sidebar */}
+      <div className="w-56 border-r border-gray-200 bg-gray-50 flex flex-col">
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <h3 className="text-sm font-semibold text-gray-700">协作群</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{teams.length} 个团队</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          {teams.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-8">暂无团队，先去「我的团队」创建</p>
+          )}
           {teams.map(t => {
             const m = t.members.find(mb => mb.isManager);
             const ma = m ? agents.find(a => a.id === m.agentId) : null;
-            return <option key={t.id} value={t.id}>{t.name} ({t.members.length}人{ma ? ` · ${ma.name}` : ''})</option>;
+            const active = t.id === teamId;
+            return (
+              <button key={t.id} onClick={() => setTeamId(t.id)}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+                  active ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-gray-600 hover:bg-gray-100'
+                }`}>
+                <div className="font-medium flex items-center gap-1.5">
+                  <span className="text-base">{active ? '💬' : '💬'}</span>
+                  {t.name}
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {ma && <span className={`w-4 h-4 rounded-full text-[8px] flex items-center justify-center text-white ${getAvatarColor(ma.name)}`}>{ma.avatar || ma.name.charAt(0)}</span>}
+                  <span className="text-[11px] text-gray-400">{t.members.length} 人{ma ? ` · 👑${ma.name}` : ' · ⚠️无管理'}</span>
+                </div>
+              </button>
+            );
           })}
-        </select>
-        {team && (
-          <div className="flex items-center gap-1.5 text-xs">
-            {managerAgent && (
-              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-lg font-medium border border-amber-200 flex items-center gap-1">
-                <AvatarCircle name={managerAgent.name} avatar={managerAgent.avatar} size="sm" />
-                {managerAgent.name} (管理者)
-              </span>
-            )}
-            {team.members.filter(m => !m.isManager).slice(0, 6).map(m => {
-              const a = agents.find(x => x.id === m.agentId);
-              return a ? (
-                <span key={a.id} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-lg flex items-center gap-1">
-                  <span className={`w-4 h-4 rounded-full text-[8px] flex items-center justify-center text-white ${getAvatarColor(a.name)}`}>
-                    {a.avatar || a.name.charAt(0)}
-                  </span>
-                  {a.name}
-                </span>
-              ) : null;
-            })}
-          </div>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {busy && (
-            <button onClick={cancel} className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium">停止</button>
-          )}
-          {teamId && <button onClick={load} className="text-sm text-gray-400 hover:text-gray-600">刷新</button>}
         </div>
       </div>
 
+      {/* Chat area */}
       {!teamId ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400">
+        <div className="flex-1 flex items-center justify-center text-gray-400 bg-white">
           <div className="text-center">
             <div className="text-5xl mb-4">💬</div>
-            <p className="font-medium">请选择一个团队</p>
-            <p className="text-sm mt-2 text-gray-300">用 <code className="px-1 bg-gray-100 rounded">@Agent名</code> 指定对话对象</p>
+            <p className="font-medium">选择一个团队开始协作</p>
+            <p className="text-sm mt-2 text-gray-300">默认消息发给管理者，用 @Agent名 指定对话对象</p>
           </div>
         </div>
       ) : (
-        <>
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="px-4 py-2.5 border-b border-gray-200 bg-white flex items-center gap-2">
+            <span className="font-semibold text-gray-900 text-sm">{team?.name}</span>
+            <span className="text-xs text-gray-400">{team?.members.length}人</span>
+            {managerAgent && (
+              <span className="ml-2 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium border border-amber-200 flex items-center gap-1">
+                <AvatarCircle name={managerAgent.name} size="sm" /> {managerAgent.name}
+              </span>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              {busy && <button onClick={cancel} className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium">停止</button>}
+              <button onClick={load} className="text-xs text-gray-400 hover:text-gray-600">刷新</button>
+            </div>
+          </div>
+
+          {/* Messages */}
           <div onScroll={onScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
             {msgs.length === 0 && !busy && streaming.length === 0 && (
               <div className="text-center py-16 text-gray-400">
-                <p className="font-medium">还没有消息</p>
+                <p className="font-medium">协作群暂无消息</p>
                 <p className="text-sm mt-1">
-                  {managerAgent
-                    ? <>默认向管理者 <b className="text-gray-600">@{managerAgent.name}</b> 发送</>
-                    : <>用 <b className="text-gray-600">@Agent名</b> 指定对话对象</>}
+                  {managerAgent ? <>直接发送，默认与管理者 <b className="text-gray-600">@{managerAgent.name}</b> 对话</> : <>用 <b className="text-gray-600">@Agent名</b> 指定对话对象</>}
                 </p>
               </div>
             )}
-
             {msgs.map(msg => (
               <div key={msg.id} className={`flex gap-2 ${msg.isUser ? 'flex-row-reverse' : ''} animate-fade-in`}>
-                <AvatarCircle
-                  name={msg.isUser ? '我' : msg.agentName}
-                  avatar={msg.isUser ? undefined : msg.avatar}
-                  size="sm"
-                />
+                <AvatarCircle name={msg.isUser ? '我' : msg.agentName} avatar={msg.isUser ? undefined : msg.avatar} size="sm" />
                 <div className={`max-w-[60%] px-4 py-3 rounded-2xl ${
-                  msg.isUser
-                    ? 'bg-blue-600 text-white rounded-br-md'
-                    : 'bg-white border border-gray-200 text-gray-700 rounded-bl-md shadow-sm'
+                  msg.isUser ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white border border-gray-200 text-gray-700 rounded-bl-md shadow-sm'
                 }`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-xs font-semibold ${msg.isUser ? 'text-blue-100' : 'text-blue-600'}`}>{msg.agentName}</span>
@@ -296,14 +277,10 @@ export default function TeamChat() {
                     </span>
                   </div>
                   <p className="text-sm whitespace-pre-wrap leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: msg.content.replace(/@(\S+)/g, '<span class="text-blue-600 font-medium bg-blue-50 px-0.5 rounded">@$1</span>')
-                    }} />
+                    dangerouslySetInnerHTML={{ __html: msg.content.replace(/@(\S+)/g, '<span class="text-blue-600 font-medium bg-blue-50 px-0.5 rounded">@$1</span>') }} />
                 </div>
               </div>
             ))}
-
-            {/* Streaming */}
             {streaming.map(s => (
               <div key={s.id} className="flex gap-2 animate-fade-in">
                 <AvatarCircle name={s.agentName} avatar={s.avatar} size="sm" />
@@ -320,7 +297,6 @@ export default function TeamChat() {
                 </div>
               </div>
             ))}
-
             {busy && streaming.length === 0 && (
               <div className="flex justify-start">
                 <div className="px-4 py-3 bg-white border border-gray-200 rounded-2xl rounded-bl-md shadow-sm">
@@ -342,11 +318,8 @@ export default function TeamChat() {
                 {getMentionSuggestions().map(a => (
                   <button key={a.id} onClick={() => insertMention(a.name)}
                     className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center text-white ${getAvatarColor(a.name)}`}>
-                      {a.avatar || a.name.charAt(0)}
-                    </span>
-                    {a.name}
-                    {a.id === manager?.agentId && <span className="text-amber-500 text-xs ml-auto">管理者</span>}
+                    <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center text-white ${getAvatarColor(a.name)}`}>{a.avatar || a.name.charAt(0)}</span>
+                    {a.name}{a.id === manager?.agentId && <span className="text-amber-500 text-xs ml-auto">管理者</span>}
                   </button>
                 ))}
               </div>
@@ -362,7 +335,7 @@ export default function TeamChat() {
                 className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50 hover:bg-blue-700 shadow-sm hover:shadow-md active:scale-[0.98] transition-all">发送</button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
