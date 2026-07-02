@@ -343,13 +343,13 @@ namespace Crew.App
                         teamCtx.Add($"- {(m.IsManager ? "👑" :"")} {a?.Name ?? m.AgentId}: {a?.Description ?? ""}");
                     }
                 }
-                // 2) Task status
-                var teamTasks = tasks.Where(t => t.TeamId == teamId).ToList();
-                if (teamTasks.Count > 0)
+                // 2) Task status — only show in-progress tasks, not session-specific
+                var activeTasks = tasks.Where(t => t.TeamId == teamId && t.Status == "in_progress").ToList();
+                if (activeTasks.Count > 0)
                 {
-                    teamCtx.Add("\n当前任务状态：");
-                    foreach (var t in teamTasks)
-                        teamCtx.Add($"- {t.Title} [{t.Status}] ({t.Phase})");
+                    teamCtx.Add("\n进行中的任务：");
+                    foreach (var t in activeTasks)
+                        teamCtx.Add($"- {t.Title} [{t.Phase}]");
                 }
                 // 3) Session
                 if (!string.IsNullOrEmpty(sessionName))
