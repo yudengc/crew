@@ -42,7 +42,7 @@ const mockData: Record<string, unknown> = {
     { id: '1', name: '代码助手', description: '熟练掌握多种编程语言', capabilities: ['code_generation'], cost: 50, isBuiltIn: true },
     { id: '2', name: '数据分析员', description: '精通数据分析和可视化', capabilities: ['data_analysis'], cost: 80, isBuiltIn: true },
   ],
-  settings: { theme: 'light', aiProvider: 'claude', hasCompletedOnboarding: false, claudeApiKey: '', openAiApiKey: '', defaultModel: 'claude-sonnet-4-20250514' },
+  settings: { theme: 'light', aiProvider: 'deepseek', hasCompletedOnboarding: false, claudeApiKey: '', openAiApiKey: '', deepseekApiKey: '', defaultModel: 'deepseek-chat' },
   listings: [],
 };
 

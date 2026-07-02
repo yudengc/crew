@@ -50,10 +50,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   marketplace: [],
   settings: {
     theme: 'light',
-    aiProvider: 'claude',
+    aiProvider: 'deepseek',
     claudeApiKey: '',
     openAiApiKey: '',
-    defaultModel: 'claude-sonnet-4-20250514',
+    deepseekApiKey: '',
+    defaultModel: 'deepseek-chat',
     hasCompletedOnboarding: false,
   },
   currentView: 'onboarding',

@@ -73,6 +73,7 @@ export interface Settings {
   aiProvider: string;
   claudeApiKey: string;
   openAiApiKey: string;
+  deepseekApiKey: string;
   defaultModel: string;
   hasCompletedOnboarding: boolean;
 }

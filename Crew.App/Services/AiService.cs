@@ -36,6 +36,8 @@ namespace Crew.App.Services
                     return Error("请先在设置中配置 Claude API Key");
                 if (string.IsNullOrEmpty(settings.OpenAiApiKey) && settings.AiProvider == "openai")
                     return Error("请先在设置中配置 OpenAI API Key");
+                if (string.IsNullOrEmpty(settings.DeepSeekApiKey) && settings.AiProvider == "deepseek")
+                    return Error("请先在设置中配置 DeepSeek API Key");
 
                 var request = JsonSerializer.Deserialize<AiRequest>(data ?? "{}");
                 if (request == null) return Error("无效的请求");
@@ -260,6 +262,7 @@ namespace Crew.App.Services
             {
                 "claude" => await CallClaudeOnceAsync(request, settings.ClaudeApiKey, cancelToken),
                 "openai" => await CallOpenAiOnceAsync(request, settings.OpenAiApiKey, cancelToken),
+                "deepseek" => await CallDeepSeekOnceAsync(request, settings.DeepSeekApiKey, cancelToken),
                 _ => Error("不支持的 AI 提供商")
             };
         }
@@ -280,7 +283,13 @@ namespace Crew.App.Services
             CancellationToken cancelToken)
         {
             var provider = settings.AiProvider;
-            var apiKey = provider == "claude" ? settings.ClaudeApiKey : settings.OpenAiApiKey;
+            var apiKey = provider switch
+            {
+                "claude" => settings.ClaudeApiKey,
+                "openai" => settings.OpenAiApiKey,
+                "deepseek" => settings.DeepSeekApiKey,
+                _ => throw new ArgumentException($"不支持的提供商: {provider}")
+            };
 
             if (string.IsNullOrEmpty(apiKey))
                 throw new ArgumentException("未配置 API Key");
@@ -289,6 +298,7 @@ namespace Crew.App.Services
             {
                 "claude" => BuildClaudeStreamRequest(request, apiKey),
                 "openai" => BuildOpenAiStreamRequest(request, apiKey),
+                "deepseek" => BuildDeepSeekStreamRequest(request, apiKey),
                 _ => throw new ArgumentException($"不支持的提供商: {provider}")
             };
 
@@ -460,6 +470,67 @@ namespace Crew.App.Services
             }
 
             return body;
+        }
+
+        // ── DeepSeek (OpenAI-compatible API) ────────────────────
+
+        private async Task<string> CallDeepSeekOnceAsync(AiRequest request, string apiKey, CancellationToken cancelToken)
+        {
+            var (url, payload, headers) = BuildDeepSeekNonStreamRequest(request, apiKey);
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            foreach (var (key, value) in headers)
+                httpRequest.Headers.Add(key, value);
+
+            using var response = await _httpClient.SendAsync(httpRequest, cancelToken);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.Warning("DeepSeek API error {Status}: {Body}", (int)response.StatusCode, body);
+                throw new ApiException($"DeepSeek API {(int)response.StatusCode}", body, (int)response.StatusCode);
+            }
+
+            return body;
+        }
+
+        private static (string url, string payload, (string, string)[] headers) BuildDeepSeekNonStreamRequest(AiRequest request, string apiKey)
+        {
+            var messages = BuildOpenAiMessages(request);
+            var body = new Dictionary<string, object>
+            {
+                ["model"] = request.ModelId ?? "deepseek-chat",
+                ["max_tokens"] = request.MaxTokens ?? 4096,
+                ["temperature"] = request.Temperature ?? 0.7,
+                ["messages"] = messages
+            };
+
+            if (request.Tools != null && request.Tools.Count > 0)
+            {
+                body["tools"] = ConvertToolsForOpenAi(request.Tools);
+            }
+
+            var headers = new (string, string)[]
+            {
+                ("Authorization", $"Bearer {apiKey}")
+            };
+
+            return (
+                "https://api.deepseek.com/v1/chat/completions",
+                JsonSerializer.Serialize(body),
+                headers
+            );
+        }
+
+        private static (string url, string payload, (string, string)[] headers) BuildDeepSeekStreamRequest(AiRequest request, string apiKey)
+        {
+            var (url, basePayload, headers) = BuildDeepSeekNonStreamRequest(request, apiKey);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(basePayload)!;
+            dict["stream"] = true;
+            return (url, JsonSerializer.Serialize(dict), headers);
         }
 
         // ── Retry logic ──────────────────────────────────────────
@@ -753,6 +824,7 @@ namespace Crew.App.Services
                 }
                 else
                 {
+                    // OpenAI and DeepSeek share the same response format
                     return ParseOpenAiContent(root);
                 }
             }
@@ -768,7 +840,6 @@ namespace Crew.App.Services
         {
             if (provider == "claude")
             {
-                // Claude errors: {"type":"error","error":{"type":"...","message":"..."}}
                 if (root.TryGetProperty("type", out var t) && t.GetString() == "error"
                     && root.TryGetProperty("error", out var err))
                 {
@@ -779,7 +850,7 @@ namespace Crew.App.Services
             }
             else
             {
-                // OpenAI errors: {"error":{"message":"...","type":"..."}}
+                // OpenAI / DeepSeek errors: {"error":{"message":"...","type":"..."}}
                 if (root.TryGetProperty("error", out var err))
                 {
                     return err.TryGetProperty("message", out var msg)
@@ -954,10 +1025,11 @@ namespace Crew.App.Services
     public class AppSettings
     {
         public string Theme { get; set; } = "dark";
-        public string AiProvider { get; set; } = "claude";
+        public string AiProvider { get; set; } = "deepseek";
         public string ClaudeApiKey { get; set; } = "";
         public string OpenAiApiKey { get; set; } = "";
-        public string DefaultModel { get; set; } = "claude-sonnet-4-20250514";
+        public string DeepSeekApiKey { get; set; } = "";
+        public string DefaultModel { get; set; } = "deepseek-chat";
         public bool HasCompletedOnboarding { get; set; }
     }
 

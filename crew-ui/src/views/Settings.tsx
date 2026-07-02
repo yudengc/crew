@@ -19,14 +19,16 @@ export default function Settings() {
     timerRef.current = setTimeout(() => setSaved(false), 2000);
   };
 
-  const testConn = async (provider: 'claude' | 'openai') => {
-    const key = provider === 'claude' ? form.claudeApiKey : form.openAiApiKey;
+  const testConn = async (provider: 'claude' | 'openai' | 'deepseek') => {
+    const key = provider === 'claude' ? form.claudeApiKey : provider === 'openai' ? form.openAiApiKey : form.deepseekApiKey;
+    const testModel = provider === 'claude' ? 'claude-haiku-4-5-20251001' : provider === 'openai' ? 'gpt-3.5-turbo' : 'deepseek-chat';
+    const label = provider === 'claude' ? 'Claude' : provider === 'openai' ? 'OpenAI' : 'DeepSeek';
     if (!key) { toast.error('请先输入 API Key'); return; }
     setTesting(provider);
     try {
       await saveSettings(form);
-      await callAi('Respond with "OK".', { model_id: provider === 'claude' ? 'claude-haiku-4-5-20251001' : 'gpt-3.5-turbo', temperature: 0, max_tokens: 10 });
-      toast.success(`${provider === 'claude' ? 'Claude' : 'OpenAI'} 连接成功 ✓`);
+      await callAi('Respond with "OK".', { model_id: testModel, temperature: 0, max_tokens: 10 });
+      toast.success(`${label} 连接成功 ✓`);
     } catch { toast.error('连接失败，检查 Key 和网络'); }
     finally { setTesting(null); }
   };
@@ -46,6 +48,7 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-600 mb-1.5">默认提供商</label>
               <select value={form.aiProvider} onChange={e => setForm({ ...form, aiProvider: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white">
+                <option value="deepseek">DeepSeek</option>
                 <option value="claude">Claude (Anthropic)</option>
                 <option value="openai">OpenAI GPT</option>
               </select>
@@ -62,6 +65,7 @@ export default function Settings() {
           <h3 className="font-semibold text-gray-900 mb-4">API Keys</h3>
           <div className="space-y-4">
             {([
+              { key: 'deepseekApiKey' as const, label: 'DeepSeek API Key', hint: 'sk-', provider: 'deepseek' as const },
               { key: 'claudeApiKey' as const, label: 'Claude API Key', hint: 'sk-ant-', provider: 'claude' as const },
               { key: 'openAiApiKey' as const, label: 'OpenAI API Key', hint: 'sk-', provider: 'openai' as const },
             ]).map(({ key, label, hint, provider }) => (

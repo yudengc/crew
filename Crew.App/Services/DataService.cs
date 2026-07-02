@@ -63,11 +63,12 @@ namespace Crew.App.Services
         {
             var settings = new
             {
-                Theme = "dark",
-                AiProvider = "claude",
+                Theme = "light",
+                AiProvider = "deepseek",
                 ClaudeApiKey = "",
                 OpenAiApiKey = "",
-                DefaultModel = "claude-sonnet-4-20250514",
+                DeepSeekApiKey = "",
+                DefaultModel = "deepseek-chat",
                 HasCompletedOnboarding = false
             };
             return JsonSerializer.Serialize(settings, _jsonOptions);

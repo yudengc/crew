@@ -49,7 +49,11 @@
       "Bash(node -e ' *)",
       "Edit(**)",
       "Write(**)",
-      "Bash(curl -s http://localhost:9876/index.html)"
+      "Bash(curl -s http://localhost:9876/index.html)",
+      "Bash(ssh-keygen -R github.com)",
+      "Read(//c/Users/yudengc/.ssh/**)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(ssh-keyscan -t ed25519 github.com)"
     ]
   }
 }
