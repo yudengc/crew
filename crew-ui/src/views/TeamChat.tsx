@@ -203,12 +203,12 @@ export default function TeamChat() {
                 if (data?.result) {
                   await saveWorkspaceMessage(agent.id, teamId, 'assistant', String(data.result)).catch(() => {});
                   const summary = String(data.result).length > 200
-                    ? String(data.result).slice(0, 200) + '...'
+                    ? String(data.result) : String(data.result);
                     : String(data.result);
                   const report: ChatMessage = {
                     id: crypto.randomUUID(), teamId, agentId: agent.id,
                     agentName: agent.name, avatar: agent.avatar,
-                    content: `📋 执行完成：\n${summary}${String(data.result).length > 200 ? '\n（详见工作区）' : ''}`,
+                    content: `📋 执行完成：\n${summary}${String(data.result).length > 200 ? String(data.result) : String(data.result);
                     isUser: false, timestamp: new Date().toISOString(),
                   };
                   await sendChatMessage(teamId, agent.id, agent.name, report.content, false, report.id, agent.avatar);
@@ -265,8 +265,8 @@ export default function TeamChat() {
           // Post brief summary to chat (not the full thinking)
           const fullText = String(result.result);
           const summary = m.isManager
-            ? (fullText.length > 200 ? fullText.slice(0, 200) + '...（详见工作区）' : fullText)
-            : (fullText.length > 150 ? fullText.slice(0, 150) + '...' : fullText);
+            ? (fullText.length > 200 ? fullText' : fullText)
+            : (fullText.length > 150 ? fullText' : fullText);
 
           const am: ChatMessage = {
             id: crypto.randomUUID(), teamId, agentId: agent.id,
@@ -333,7 +333,7 @@ export default function TeamChat() {
               await saveWorkspaceMessage(aid, teamId, 'assistant', String(data.result), sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
               // Post execution summary to team chat
               const summary = String(data.result).length > 200
-                ? String(data.result).slice(0, 200) + '...（详见工作区）'
+                ? String(data.result) : String(data.result);
                 : String(data.result);
               const report: ChatMessage = {
                 id: crypto.randomUUID(), teamId, agentId: target.id,

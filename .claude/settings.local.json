@@ -93,7 +93,12 @@
       "Bash(sed -i 's/streamCallAi: async \\(prompt, onChunk, config\\)/streamCallAi: async \\(prompt, onChunk, config, signal\\)/' stores/appStore.ts)",
       "Bash(sed -i 's/return streamAiChat\\(prompt, modelId, onChunk\\);/return streamAiChat\\(prompt, modelId, onChunk, signal\\);/' stores/appStore.ts)",
       "Bash(sed -i 's/streamCallAi: \\(prompt: string, onChunk: \\(text: string\\) => void, config?: Partial<Agent\\\\[.config.\\\\]>\\) => Promise<string>;/streamCallAi: \\(prompt: string, onChunk: \\(text: string\\) => void, config?: Partial<Agent\\\\[.config.\\\\]>, signal?: AbortSignal\\) => Promise<string>;/' stores/appStore.ts)",
-      "Bash(sed -i 's/getWorkspace,/getWorkspace, getAllWorkspaceMessages,/' views/AgentWorkspace.tsx)"
+      "Bash(sed -i 's/getWorkspace,/getWorkspace, getAllWorkspaceMessages,/' views/AgentWorkspace.tsx)",
+      "Bash(sed -i '/String\\(data.result\\).length > 200/,/（详见工作区）/{s/? .*/? String\\(data.result\\) : String\\(data.result\\);/}' TeamChat.tsx)",
+      "Bash(sed -i 's/String\\(data.result\\).slice\\(0, 200\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\./String\\(data.result\\)/g' TeamChat.tsx)",
+      "Bash(sed -i 's/fullText.slice\\(0, 200\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\.（详见工作区）/fullText/g' TeamChat.tsx)",
+      "Bash(sed -i 's/fullText.slice\\(0, 150\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\./fullText/g' TeamChat.tsx)",
+      "Bash(sed -i \"s/\\\\$\\(String\\(data.result\\).length > 200 ? '\\\\\\\\\\\\\\\\n（详见工作区）' : ''\\)//g\" TeamChat.tsx)"
     ]
   }
 }
