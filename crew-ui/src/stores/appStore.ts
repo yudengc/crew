@@ -206,8 +206,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       capabilities: marketAgent.capabilities,
       personality: { communication_style: '专业', decision_making: '理性' },
       config: {
-        model_provider: 'claude',
-        model_id: 'claude-sonnet-4-20250514',
+        model_provider: get().settings.aiProvider,
+        model_id: get().settings.defaultModel,
         temperature: 0.7,
         max_tokens: 4096,
       },
