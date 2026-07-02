@@ -3,88 +3,80 @@ import { useAppStore } from '../stores/appStore';
 
 const steps = [
   {
-    title: '什么是 Agent？',
-    content: 'Agent 是具有特定能力的 AI 助手。每个 Agent 都有独特的技能树，比如代码编写、数据分析、调研搜索等。你可以把他们想象成你的数字员工。',
-    icon: '🤖',
+    title: '欢迎使用 Crew',
+    desc: 'Crew 是一个 Agent 团队协作平台。组建 AI Agent 团队来执行复杂任务——每个 Agent 都有独特的专长和能力。',
+    emoji: '🚀',
+  },
+  {
+    title: '浏览市场 & 创建 Agent',
+    desc: '在市场中挑选现成的 Agent，或在 Agent 工厂中自定义创建——设定模型、温度、沟通风格和决策方式。',
+    emoji: '🏪',
   },
   {
     title: '组建你的团队',
-    content: '从市场购买 Agent 或自己创建他们，然后把他们组合成团队。一个团队可以包含多个不同能力的 Agent，协作完成复杂任务。',
-    icon: '👥',
+    desc: '将不同专长的 Agent 组合成团队，指定管理者与成员角色，让它们各司其职、相互协作。',
+    emoji: '👥',
   },
   {
-    title: '下发任务',
-    content: '作为项目经理，你只需要描述任务需求，团队会自动协调分配工作。Agent 之间可以通信协作，最终给你一个完整的结果。',
-    icon: '📋',
-  },
-  {
-    title: '开始使用',
-    content: '先去市场看看有哪些 Agent 可用，或者直接创建你需要的自定义 Agent。准备好了吗？',
-    icon: '🚀',
+    title: '智能任务编排',
+    desc: '给团队分配任务后，管理 Agent 会自动拆解、并行分派、综合结果——像一支真正的项目团队。',
+    emoji: '✨',
   },
 ];
 
 export default function Onboarding() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const { setView, saveSettings, settings } = useAppStore();
+  const [step, setStep] = useState(0);
+  const { saveSettings, settings, setView } = useAppStore();
+  const last = step === steps.length - 1;
 
-  const handleNext = async () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      await saveSettings({ ...settings, hasCompletedOnboarding: true });
-      setView('marketplace');
-    }
-  };
-
-  const handleSkip = async () => {
+  const finish = async () => {
     await saveSettings({ ...settings, hasCompletedOnboarding: true });
     setView('marketplace');
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#1e1e1e] p-8">
-      <div className="max-w-2xl w-full">
-        <div className="text-center mb-12">
-          <div className="text-6xl mb-4">{steps[currentStep].icon}</div>
-          <h2 className="text-3xl font-bold text-white mb-2">
-            {steps[currentStep].title}
-          </h2>
-          <p className="text-gray-400 text-lg leading-relaxed">
-            {steps[currentStep].content}
-          </p>
-        </div>
-
-        <div className="flex justify-center gap-3 mb-8">
-          {steps.map((_, idx) => (
-            <div
-              key={idx}
-              className={`w-3 h-3 rounded-full transition-colors ${
-                idx === currentStep ? 'bg-blue-500' : 'bg-gray-600'
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      <div className="w-full max-w-lg mx-auto px-6 sm:px-10">
+        {/* Step dots */}
+        <div className="flex justify-center gap-2 mb-10">
+          {steps.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setStep(i)}
+              className={`rounded-full transition-all duration-500 ${
+                i === step
+                  ? 'w-10 h-2 bg-blue-600'
+                  : i < step
+                  ? 'w-2 h-2 bg-green-500'
+                  : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
               }`}
+              aria-label={`第 ${i + 1} 步`}
             />
           ))}
         </div>
 
-        <div className="flex justify-center gap-4">
-          {currentStep > 0 && (
-            <button
-              onClick={() => setCurrentStep(currentStep - 1)}
-              className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
-            >
-              上一步
-            </button>
-          )}
+        {/* Card */}
+        <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 p-10 sm:p-12 mb-8">
+          <div className="text-center" key={step}>
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-blue-50 mb-8">
+              <span className="text-4xl">{steps[step].emoji}</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">{steps[step].title}</h2>
+            <p className="text-gray-500 leading-relaxed text-base">{steps[step].desc}</p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col items-center gap-3">
           <button
-            onClick={handleNext}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            onClick={() => (last ? finish() : setStep(step + 1))}
+            className="w-full max-w-sm py-3.5 bg-blue-600 text-white rounded-2xl font-semibold text-base
+              shadow-md shadow-blue-200 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-300
+              active:scale-[0.98] transition-all duration-200"
           >
-            {currentStep === steps.length - 1 ? '开始使用' : '下一步'}
+            {last ? '开始使用' : '下一步'}
           </button>
-          <button
-            onClick={handleSkip}
-            className="px-6 py-3 text-gray-500 hover:text-gray-300 transition-colors"
-          >
+          <button onClick={finish} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
             跳过引导
           </button>
         </div>

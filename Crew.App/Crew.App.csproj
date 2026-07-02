@@ -13,4 +13,11 @@
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
   </ItemGroup>
 
+  <Target Name="CopyUiFiles" AfterTargets="AfterBuild">
+    <ItemGroup>
+      <UiFiles Include="..\crew-ui\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(UiFiles)" DestinationFiles="@(UiFiles->'$(OutDir)ui\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

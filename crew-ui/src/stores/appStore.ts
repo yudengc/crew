@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem } from '../types';
-import { bridgeSend } from '../utils/bridge';
+import { bridgeSend, streamAiChat } from '../utils/bridge';
 
 interface AppState {
   agents: Agent[];
@@ -29,6 +29,8 @@ interface AppState {
   saveSettings: (settings: Settings) => Promise<void>;
   purchaseAgent: (agent: MarketplaceAgent) => Promise<boolean>;
   callAi: (prompt: string, config?: Partial<Agent['config']>) => Promise<string>;
+  streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>) => Promise<string>;
+  cancelTask: (taskId: string) => Promise<boolean>;
 
   // 新功能
   addMemberToTeam: (teamId: string, agentId: string, role?: string) => Promise<boolean>;
@@ -47,7 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tasks: [],
   marketplace: [],
   settings: {
-    theme: 'dark',
+    theme: 'light',
     aiProvider: 'claude',
     claudeApiKey: '',
     openAiApiKey: '',
@@ -186,8 +188,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveSettings: async (settings) => {
-    await bridgeSend('saveSettings', JSON.stringify(settings));
-    set({ settings });
+    try {
+      await bridgeSend('saveSettings', JSON.stringify(settings));
+      set({ settings });
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      throw err;
+    }
   },
 
   purchaseAgent: async (marketAgent) => {
@@ -228,6 +235,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw new Error((result as { error: string }).error);
     }
     return '无响应';
+  },
+
+  streamCallAi: async (prompt, onChunk, config) => {
+    const settings = get().settings;
+    const modelId = config?.model_id || settings.defaultModel;
+    return streamAiChat(prompt, modelId, onChunk);
+  },
+
+  cancelTask: async (taskId) => {
+    const result = await bridgeSend('cancelTask', taskId);
+    if (result && typeof result === 'object' && 'cancelled' in result) {
+      await get().loadTasks();
+      return true;
+    }
+    return false;
   },
 
   addMemberToTeam: async (teamId, agentId, role = 'member') => {

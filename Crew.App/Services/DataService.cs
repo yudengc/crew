@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
 using Serilog;
 
 namespace Crew.App.Services
 {
-    public class DataService
+    public class DataService : IDisposable
     {
         private readonly string _dataPath;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly SemaphoreSlim _writeLock = new(1, 1);
 
         public DataService(string appDataPath)
         {
@@ -73,13 +76,32 @@ namespace Crew.App.Services
         private string ReadFile(string filename)
         {
             string path = Path.Combine(_dataPath, filename);
-            return File.ReadAllText(path);
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Error(ex, "Failed to read {File}", filename);
+                // Return valid empty array/object so callers don't crash
+                if (filename.EndsWith(".json"))
+                    return filename.Contains("settings") ? GetDefaultSettings() : "[]";
+                throw;
+            }
         }
 
         private void WriteFile(string filename, string content)
         {
             string path = Path.Combine(_dataPath, filename);
-            File.WriteAllText(path, content);
+            string tempPath = path + ".tmp";
+            string backupPath = path + ".bak";
+
+            // Atomic write: temp file → replace (preserves old as .bak)
+            File.WriteAllText(tempPath, content);
+            if (File.Exists(path))
+                File.Replace(tempPath, path, backupPath);
+            else
+                File.Move(tempPath, path);
             Log.Debug("Wrote {File}", filename);
         }
 
@@ -94,90 +116,153 @@ namespace Crew.App.Services
         public string SaveAgent(string? data)
         {
             if (string.IsNullOrEmpty(data)) return "null";
-            var agents = JsonSerializer.Deserialize<List<Agent>>(ReadFile("agents.json"), _jsonOptions) ?? new();
-            var agent = JsonSerializer.Deserialize<Agent>(data, _jsonOptions);
-            if (agent == null) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var agents = JsonSerializer.Deserialize<List<Agent>>(ReadFile("agents.json"), _jsonOptions) ?? new();
+                var agent = JsonSerializer.Deserialize<Agent>(data, _jsonOptions);
+                if (agent == null) return "null";
 
-            var existing = agents.FindIndex(a => a.Id == agent.Id);
-            if (existing >= 0) agents[existing] = agent;
-            else agents.Add(agent);
+                var existing = agents.FindIndex(a => a.Id == agent.Id);
+                if (existing >= 0) agents[existing] = agent;
+                else agents.Add(agent);
 
-            WriteFile("agents.json", JsonSerializer.Serialize(agents, _jsonOptions));
-            return JsonSerializer.Serialize(agent, _jsonOptions);
+                WriteFile("agents.json", JsonSerializer.Serialize(agents, _jsonOptions));
+                return JsonSerializer.Serialize(agent, _jsonOptions);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string DeleteAgent(string? id)
         {
             if (string.IsNullOrEmpty(id)) return "false";
-            var agents = JsonSerializer.Deserialize<List<Agent>>(ReadFile("agents.json"), _jsonOptions) ?? new();
-            agents.RemoveAll(a => a.Id == id);
-            WriteFile("agents.json", JsonSerializer.Serialize(agents, _jsonOptions));
+            _writeLock.Wait();
+            try
+            {
+                var agents = JsonSerializer.Deserialize<List<Agent>>(ReadFile("agents.json"), _jsonOptions) ?? new();
+                agents.RemoveAll(a => a.Id == id);
+                WriteFile("agents.json", JsonSerializer.Serialize(agents, _jsonOptions));
 
-            var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
-            listings.RemoveAll(l => l.AgentId == id);
-            WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
+                var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
+                listings.RemoveAll(l => l.AgentId == id);
+                WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
 
-            return "true";
+                return "true";
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string SaveTeam(string? data)
         {
             if (string.IsNullOrEmpty(data)) return "null";
-            var teams = JsonSerializer.Deserialize<List<Team>>(ReadFile("teams.json"), _jsonOptions) ?? new();
-            var team = JsonSerializer.Deserialize<Team>(data, _jsonOptions);
-            if (team == null) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var teams = JsonSerializer.Deserialize<List<Team>>(ReadFile("teams.json"), _jsonOptions) ?? new();
+                var team = JsonSerializer.Deserialize<Team>(data, _jsonOptions);
+                if (team == null) return "null";
 
-            var existing = teams.FindIndex(t => t.Id == team.Id);
-            if (existing >= 0) teams[existing] = team;
-            else teams.Add(team);
+                var existing = teams.FindIndex(t => t.Id == team.Id);
+                if (existing >= 0) teams[existing] = team;
+                else teams.Add(team);
 
-            WriteFile("teams.json", JsonSerializer.Serialize(teams, _jsonOptions));
-            return JsonSerializer.Serialize(team, _jsonOptions);
+                WriteFile("teams.json", JsonSerializer.Serialize(teams, _jsonOptions));
+                return JsonSerializer.Serialize(team, _jsonOptions);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string DeleteTeam(string? id)
         {
             if (string.IsNullOrEmpty(id)) return "false";
-            var teams = JsonSerializer.Deserialize<List<Team>>(ReadFile("teams.json"), _jsonOptions) ?? new();
-            teams.RemoveAll(t => t.Id == id);
-            WriteFile("teams.json", JsonSerializer.Serialize(teams, _jsonOptions));
+            _writeLock.Wait();
+            try
+            {
+                var teams = JsonSerializer.Deserialize<List<Team>>(ReadFile("teams.json"), _jsonOptions) ?? new();
+                teams.RemoveAll(t => t.Id == id);
+                WriteFile("teams.json", JsonSerializer.Serialize(teams, _jsonOptions));
 
-            var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
-            chats.RemoveAll(c => c.TeamId == id);
-            WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                chats.RemoveAll(c => c.TeamId == id);
+                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
 
-            return "true";
+                return "true";
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string SaveTask(string? data)
         {
             if (string.IsNullOrEmpty(data)) return "null";
-            var tasks = JsonSerializer.Deserialize<List<TaskItem>>(ReadFile("tasks.json"), _jsonOptions) ?? new();
-            var task = JsonSerializer.Deserialize<TaskItem>(data, _jsonOptions);
-            if (task == null) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(ReadFile("tasks.json"), _jsonOptions) ?? new();
+                var task = JsonSerializer.Deserialize<TaskItem>(data, _jsonOptions);
+                if (task == null) return "null";
 
-            var existing = tasks.FindIndex(t => t.Id == task.Id);
-            if (existing >= 0) tasks[existing] = task;
-            else tasks.Add(task);
+                var existing = tasks.FindIndex(t => t.Id == task.Id);
+                if (existing >= 0) tasks[existing] = task;
+                else tasks.Add(task);
 
-            WriteFile("tasks.json", JsonSerializer.Serialize(tasks, _jsonOptions));
-            return JsonSerializer.Serialize(task, _jsonOptions);
+                WriteFile("tasks.json", JsonSerializer.Serialize(tasks, _jsonOptions));
+                return JsonSerializer.Serialize(task, _jsonOptions);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string DeleteTask(string? id)
         {
             if (string.IsNullOrEmpty(id)) return "false";
-            var tasks = JsonSerializer.Deserialize<List<TaskItem>>(ReadFile("tasks.json"), _jsonOptions) ?? new();
-            tasks.RemoveAll(t => t.Id == id);
-            WriteFile("tasks.json", JsonSerializer.Serialize(tasks, _jsonOptions));
-            return "true";
+            _writeLock.Wait();
+            try
+            {
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(ReadFile("tasks.json"), _jsonOptions) ?? new();
+                tasks.RemoveAll(t => t.Id == id);
+                WriteFile("tasks.json", JsonSerializer.Serialize(tasks, _jsonOptions));
+                return "true";
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string SaveSettings(string? data)
         {
             if (string.IsNullOrEmpty(data)) return GetSettings();
-            WriteFile("settings.json", data);
-            return data;
+            _writeLock.Wait();
+            try
+            {
+                // Validate it's valid JSON before writing
+                JsonDocument.Parse(data);
+                WriteFile("settings.json", data);
+                return data;
+            }
+            catch (JsonException)
+            {
+                Log.Warning("SaveSettings rejected invalid JSON");
+                return GetSettings();
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string GetChat(string? teamId)
@@ -191,44 +276,68 @@ namespace Crew.App.Services
         public string SaveChatMessage(string? data)
         {
             if (string.IsNullOrEmpty(data)) return "null";
-            var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
-            var msg = JsonSerializer.Deserialize<ChatMessage>(data, _jsonOptions);
-            if (msg == null) return "null";
-
-            var chat = chats.Find(c => c.TeamId == msg.TeamId);
-            if (chat == null)
+            _writeLock.Wait();
+            try
             {
-                chat = new ChatSession { TeamId = msg.TeamId, Messages = new() };
-                chats.Add(chat);
-            }
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                var msg = JsonSerializer.Deserialize<ChatMessage>(data, _jsonOptions);
+                if (msg == null) return "null";
 
-            chat.Messages.Add(msg);
-            WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
-            return JsonSerializer.Serialize(msg, _jsonOptions);
+                var chat = chats.Find(c => c.TeamId == msg.TeamId);
+                if (chat == null)
+                {
+                    chat = new ChatSession { TeamId = msg.TeamId, Messages = new() };
+                    chats.Add(chat);
+                }
+
+                chat.Messages.Add(msg);
+                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                return JsonSerializer.Serialize(msg, _jsonOptions);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string PublishAgentToMarketplace(string? data)
         {
             if (string.IsNullOrEmpty(data)) return "null";
-            var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
-            var listing = JsonSerializer.Deserialize<ListingItem>(data, _jsonOptions);
-            if (listing == null) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
+                var listing = JsonSerializer.Deserialize<ListingItem>(data, _jsonOptions);
+                if (listing == null) return "null";
 
-            var existing = listings.FindIndex(l => l.AgentId == listing.AgentId);
-            if (existing >= 0) listings[existing] = listing;
-            else listings.Add(listing);
+                var existing = listings.FindIndex(l => l.AgentId == listing.AgentId);
+                if (existing >= 0) listings[existing] = listing;
+                else listings.Add(listing);
 
-            WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
-            return JsonSerializer.Serialize(listing, _jsonOptions);
+                WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
+                return JsonSerializer.Serialize(listing, _jsonOptions);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string UnpublishAgent(string? agentId)
         {
             if (string.IsNullOrEmpty(agentId)) return "false";
-            var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
-            listings.RemoveAll(l => l.AgentId == agentId);
-            WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
-            return "true";
+            _writeLock.Wait();
+            try
+            {
+                var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
+                listings.RemoveAll(l => l.AgentId == agentId);
+                WriteFile("listings.json", JsonSerializer.Serialize(listings, _jsonOptions));
+                return "true";
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public string GetListingForAgent(string? agentId)
@@ -237,6 +346,11 @@ namespace Crew.App.Services
             var listings = JsonSerializer.Deserialize<List<ListingItem>>(ReadFile("listings.json"), _jsonOptions) ?? new();
             var listing = listings.Find(l => l.AgentId == agentId);
             return JsonSerializer.Serialize(listing, _jsonOptions);
+        }
+
+        public void Dispose()
+        {
+            _writeLock.Dispose();
         }
     }
 
@@ -256,15 +370,24 @@ namespace Crew.App.Services
 
     public class AgentPersonality
     {
+        [JsonPropertyName("communication_style")]
         public string CommunicationStyle { get; set; } = "专业";
+
+        [JsonPropertyName("decision_making")]
         public string DecisionMaking { get; set; } = "理性";
     }
 
     public class AgentConfig
     {
+        [JsonPropertyName("model_provider")]
         public string ModelProvider { get; set; } = "claude";
+
+        [JsonPropertyName("model_id")]
         public string ModelId { get; set; } = "claude-sonnet-4-20250514";
+
         public double Temperature { get; set; } = 0.7;
+
+        [JsonPropertyName("max_tokens")]
         public int MaxTokens { get; set; } = 4096;
     }
 

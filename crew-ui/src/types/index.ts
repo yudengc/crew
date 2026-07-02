@@ -41,7 +41,7 @@ export interface SubTask {
   title: string;
   assignedAgentId: string;
   assignedAgentName: string;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
   result: string;
 }
 
@@ -75,17 +75,6 @@ export interface Settings {
   openAiApiKey: string;
   defaultModel: string;
   hasCompletedOnboarding: boolean;
-}
-
-export interface BridgeRequest {
-  action: string;
-  data?: string;
-  id?: string;
-}
-
-export interface ChatSession {
-  teamId: string;
-  messages: ChatMessage[];
 }
 
 export interface ChatMessage {

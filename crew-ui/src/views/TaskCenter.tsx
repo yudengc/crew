@@ -1,295 +1,168 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useAppStore } from '../stores/appStore';
+import { useConfirm } from '../components/ConfirmDialog';
 import type { TaskItem } from '../types';
 
-const PHASE_LABELS: Record<string, string> = {
-  idle: '待执行',
-  decomposing: '分析中',
-  executing: '执行中',
-  synthesizing: '综合中',
-  completed: '已完成',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: '待执行',
-  in_progress: '执行中',
-  completed: '已完成',
-};
+const PHASE_ORDER = ['decomposing', 'executing', 'synthesizing'] as const;
+const PHASE_LABEL: Record<string, string> = { idle: '待执行', decomposing: '拆解中', executing: '执行中', synthesizing: '整合中', completed: '已完成' };
 
 export default function TaskCenter() {
-  const { tasks, teams, agents, saveTask, deleteTask, callAi, executeTaskOrchestrated } = useAppStore();
+  const { tasks, teams, agents, saveTask, deleteTask, executeTaskOrchestrated } = useAppStore();
+  const { confirm, dialog } = useConfirm();
   const [showCreate, setShowCreate] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', teamId: '' });
-  const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<string>('idle');
+  const [form, setForm] = useState({ title: '', description: '', teamId: '' });
+  const [execId, setExecId] = useState<string | null>(null);
+  const [phase, setPhase] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const handleCreate = async () => {
-    if (!newTask.title.trim() || !newTask.teamId) return;
-    const team = teams.find(t => t.id === newTask.teamId);
+    if (!form.title.trim() || !form.teamId) { toast.error('请填写标题并选团队'); return; }
+    const team = teams.find(t => t.id === form.teamId);
     const task: TaskItem = {
-      id: crypto.randomUUID(),
-      title: newTask.title,
-      description: newTask.description,
-      teamId: newTask.teamId,
-      teamMembers: team?.members ?? [],
-      status: 'pending',
-      result: '',
-      createdAt: new Date().toISOString(),
-      subTasks: [],
-      phase: 'idle',
+      id: crypto.randomUUID(), title: form.title, description: form.description,
+      teamId: form.teamId, teamMembers: team?.members ?? [],
+      status: 'pending', result: '', createdAt: new Date().toISOString(), subTasks: [], phase: 'idle',
     };
-    await saveTask(task);
-    setNewTask({ title: '', description: '', teamId: '' });
-    setShowCreate(false);
+    (await saveTask(task)) ? toast.success('任务已创建') : toast.error('创建失败');
+    setForm({ title: '', description: '', teamId: '' }); setShowCreate(false);
   };
 
-  const handleExecute = async (task: TaskItem) => {
-    const team = teams.find(t => t.id === task.teamId);
-    if (!team) return;
-
-    const updatedTask: TaskItem = { ...task, status: 'in_progress' };
-    await saveTask(updatedTask);
-    setExecutingTaskId(task.id);
-
-    try {
-      const memberAgents = team.members
-        .map(m => agents.find(a => a.id === m.agentId))
-        .filter(Boolean);
-
-      let results: string[] = [];
-      for (const agent of memberAgents) {
-        if (!agent) continue;
-        const prompt = `你是 ${agent.name}，${agent.description}。任务：${task.description}`;
-        const result = await callAi(prompt, agent.config);
-        results.push(`【${agent.name}】\n${result}`);
-      }
-
-      const finalTask: TaskItem = {
-        ...updatedTask,
-        status: 'completed',
-        result: results.join('\n\n'),
-        completedAt: new Date().toISOString(),
-      };
-      await saveTask(finalTask);
-    } catch (error) {
-      const failedTask: TaskItem = {
-        ...updatedTask,
-        status: 'pending',
-        result: `错误：${(error as Error).message}`,
-      };
-      await saveTask(failedTask);
-    } finally {
-      setExecutingTaskId(null);
-    }
-  };
-
-  const handleExecuteOrchestrated = async (task: TaskItem) => {
-    setExecutingTaskId(task.id);
-    setCurrentPhase('decomposing');
-
-    // Poll phase updates from task store
-    const pollPhase = setInterval(() => {
-      const updated = tasks.find(t => t.id === task.id);
-      if (updated) {
-        setCurrentPhase(updated.phase);
-        if (updated.phase === 'completed' || updated.status === 'completed') {
-          clearInterval(pollPhase);
-          setExecutingTaskId(null);
-          setCurrentPhase('idle');
-        }
+  const run = async (task: TaskItem) => {
+    // Prevent double-execution of the same task
+    if (execId) return;
+    setExecId(task.id); setPhase('decomposing');
+    const taskId = task.id;
+    let t = 0;
+    const interval = setInterval(() => {
+      const cur = useAppStore.getState().tasks.find(x => x.id === taskId);
+      t++;
+      if (cur) setPhase(cur.phase);
+      if (cur?.phase === 'completed' || t > 600) {
+        clearInterval(interval);
+        if (taskId === execId) { setExecId(null); setPhase(''); }
       }
     }, 1000);
-
-    try {
-      await executeTaskOrchestrated(task.id);
-    } catch (error) {
-      console.error('Orchestration error:', error);
-    } finally {
-      clearInterval(pollPhase);
-      setExecutingTaskId(null);
-      setCurrentPhase('idle');
+    try { await executeTaskOrchestrated(taskId); }
+    catch { toast.error('执行失败'); }
+    finally {
+      clearInterval(interval);
+      if (taskId === execId) { setExecId(null); setPhase(''); }
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确定删除这个任务吗？')) {
-      await deleteTask(id);
-    }
-  };
-
-  const getAgentName = (agentId: string) => {
-    return agents.find(a => a.id === agentId)?.name ?? agentId;
-  };
-
-  const getManagerName = (task: TaskItem) => {
-    const manager = task.teamMembers?.find(m => m.isManager);
-    if (manager) return getAgentName(manager.agentId);
-    if (task.teamMembers?.length > 0) return getAgentName(task.teamMembers[0].agentId);
-    return '未知';
+  const del = async (id: string) => {
+    if (!(await confirm({ title: '删除任务', message: '确定删除吗？', variant: 'danger' }))) return;
+    (await deleteTask(id)) ? toast.success('已删除') : toast.error('删除失败');
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">任务中心</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-        >
-          + 创建任务
-        </button>
+    <div className="p-6">
+      {dialog}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">任务中心</h2>
+          <p className="text-sm text-gray-400 mt-0.5">{tasks.length} 个任务</p>
+        </div>
+        <button onClick={() => setShowCreate(true)}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 shadow-sm hover:shadow-md active:scale-[0.98] transition-all">+ 创建任务</button>
       </div>
 
       {showCreate && (
-        <div className="mb-6 p-4 bg-[#252526] rounded-lg border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">创建新任务</h3>
-          <input
-            type="text"
-            placeholder="任务标题"
-            value={newTask.title}
-            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            className="w-full px-4 py-2 mb-4 bg-[#1e1e1e] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-          />
-          <textarea
-            placeholder="任务描述..."
-            value={newTask.description}
-            onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 mb-4 bg-[#1e1e1e] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-          />
-          <select
-            value={newTask.teamId}
-            onChange={(e) => setNewTask({ ...newTask, teamId: e.target.value })}
-            className="w-full px-4 py-2 mb-4 bg-[#1e1e1e] border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-          >
+        <div className="mb-6 p-5 bg-white border border-gray-200 rounded-2xl shadow-sm animate-slide-in">
+          <h3 className="font-semibold text-gray-900 mb-4">创建新任务</h3>
+          <input type="text" placeholder="任务标题" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 mb-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+          <textarea placeholder="任务描述..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 mb-3 resize-none outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+          <select value={form.teamId} onChange={e => setForm({ ...form, teamId: e.target.value })}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 mb-4 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white">
             <option value="">选择执行团队</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>{team.name}</option>
-            ))}
+            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <div className="flex gap-2">
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              创建
-            </button>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="px-4 py-2 text-gray-400 hover:text-white"
-            >
-              取消
-            </button>
+            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">创建</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">取消</button>
           </div>
         </div>
       )}
 
       {tasks.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-xl mb-2">还没有任务</p>
-          <p>创建一个任务，分配给团队执行</p>
+        <div className="text-center py-24 text-gray-400">
+          <div className="text-5xl mb-4">📋</div>
+          <p className="font-medium">还没有任务</p>
+          <p className="text-sm mt-1">创建任务，分配给团队执行</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {tasks.map((task) => {
-            const isExecuting = executingTaskId === task.id;
-            const phase = isExecuting ? currentPhase : task.phase;
-            const phaseLabel = PHASE_LABELS[phase] ?? phase;
-
+          {tasks.map(task => {
+            const running = execId === task.id;
+            const curPhase = running ? phase : task.phase;
+            const team = teams.find(t => t.id === task.teamId);
             return (
-              <div key={task.id} className="p-4 bg-[#252526] rounded-lg border border-gray-700">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{task.title}</h3>
-                    <p className="text-gray-400 text-sm mt-1">{task.description}</p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      负责人：{getManagerName(task)} · 团队：{teams.find(t => t.id === task.teamId)?.name ?? '未知'}
-                    </p>
+              <div key={task.id} className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 mr-4">
+                    <h3 className="font-semibold text-gray-900">{task.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                      <span>👤 {task.teamMembers?.[0]?.agentId ? agents.find(a => a.id === task.teamMembers[0].agentId)?.name : '未分配'}</span>
+                      <span>👥 {team?.name ?? '未知'}</span>
+                      <span className={`px-2 py-0.5 rounded-full font-medium ${
+                        task.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                      }`}>{curPhase !== 'idle' && curPhase !== 'completed' ? PHASE_LABEL[curPhase] : task.status === 'completed' ? '已完成' : '待执行'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      task.status === 'completed' ? 'bg-green-900 text-green-300' :
-                      task.status === 'in_progress' ? 'bg-yellow-900 text-yellow-300' :
-                      'bg-gray-700 text-gray-300'
-                    }`}>
-                      {phase !== 'idle' && phase !== 'completed' ? phaseLabel : STATUS_LABELS[task.status] ?? task.status}
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0">
                     {task.status !== 'completed' && (
-                      <>
-                        <button
-                          onClick={() => handleExecute(task)}
-                          disabled={isExecuting}
-                          className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50"
-                        >
-                          简单执行
-                        </button>
-                        <button
-                          onClick={() => handleExecuteOrchestrated(task)}
-                          disabled={isExecuting}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {isExecuting ? '执行中...' : '智能协调'}
-                        </button>
-                      </>
+                      <button onClick={() => run(task)} disabled={running}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all">
+                        {running ? '执行中...' : '智能协调'}
+                      </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="text-gray-500 hover:text-red-400 text-sm"
-                    >
-                      删除
-                    </button>
+                    <button onClick={() => del(task.id)} className="px-3 py-1.5 text-sm text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">删除</button>
                   </div>
                 </div>
 
-                {/* Phase progress indicator */}
-                {phase !== 'idle' && phase !== 'completed' && (
-                  <div className="mb-3 flex items-center gap-2 text-sm">
-                    <div className="flex gap-1">
-                      {['decomposing', 'executing', 'synthesizing'].map((p) => (
-                        <div
-                          key={p}
-                          className={`w-16 h-1 rounded ${
-                            phase === p ? 'bg-blue-500' :
-                            ['decomposing', 'executing', 'synthesizing'].indexOf(phase) > ['decomposing', 'executing', 'synthesizing'].indexOf(p)
-                              ? 'bg-green-500' : 'bg-gray-600'
-                          }`}
-                        />
-                      ))}
+                {curPhase !== 'idle' && curPhase !== 'completed' && (
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex gap-2 flex-1">
+                      {PHASE_ORDER.map((p, i) => {
+                        const idx = PHASE_ORDER.indexOf(curPhase as typeof PHASE_ORDER[number]);
+                        const done = idx >= 0 && idx > i;
+                        const active = curPhase === p;
+                        const color = active ? 'bg-blue-500' : (done ? 'bg-green-500' : 'bg-gray-200');
+                        return <div key={p} className={`h-1.5 rounded-full flex-1 transition-colors duration-500 ${color}`} />;
+                      })}
                     </div>
-                    <span className="text-blue-400">{phaseLabel}...</span>
+                    <span className="text-xs text-blue-600 font-medium whitespace-nowrap">{PHASE_LABEL[curPhase] ?? curPhase}...</span>
                   </div>
                 )}
 
-                {/* Sub-task cards */}
-                {task.subTasks && task.subTasks.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <h4 className="text-sm font-medium text-gray-400">子任务</h4>
-                    {task.subTasks.map((subtask) => (
-                      <div key={subtask.id} className="p-2 bg-[#1e1e1e] rounded border border-gray-700">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${
-                              subtask.status === 'completed' ? 'bg-green-500' :
-                              subtask.status === 'in_progress' ? 'bg-yellow-500' : 'bg-gray-500'
-                            }`} />
-                            <span className="text-sm text-white">{subtask.title}</span>
-                            <span className="text-xs text-gray-500">→ {subtask.assignedAgentName}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{STATUS_LABELS[subtask.status] ?? subtask.status}</span>
-                        </div>
-                        {subtask.result && subtask.status === 'completed' && (
-                          <div className="mt-2 text-xs text-gray-400 whitespace-pre-wrap pl-4 border-l-2 border-gray-700">
-                            {subtask.result.substring(0, 200)}{subtask.result.length > 200 ? '...' : ''}
-                          </div>
-                        )}
+                {task.subTasks.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">子任务</p>
+                    {task.subTasks.map(st => (
+                      <div key={st.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-xl text-sm border border-gray-100">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          st.status === 'completed' ? 'bg-green-500' : st.status === 'in_progress' ? 'bg-blue-500 animate-pulse' :
+                          st.status === 'failed' ? 'bg-red-500' : 'bg-gray-300'
+                        }`} />
+                        <span className="flex-1 text-gray-600">{st.title}</span>
+                        <span className="text-xs text-gray-400">→ {st.assignedAgentName}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                          st.status === 'completed' ? 'bg-green-100 text-green-700' : st.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                          st.status === 'failed' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-500'
+                        }`}>{st.status === 'completed' ? '完成' : st.status === 'in_progress' ? '执行中' : st.status === 'failed' ? '失败' : '等待'}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Final result */}
                 {task.result && (
-                  <div className="mt-3 p-3 bg-[#1e1e1e] rounded text-gray-300 text-sm whitespace-pre-wrap">
+                  <div className="mt-3 p-4 bg-gray-50 rounded-xl text-sm text-gray-600 whitespace-pre-wrap leading-relaxed border border-gray-100">
                     {task.result}
                   </div>
                 )}
