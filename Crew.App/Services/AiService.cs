@@ -751,11 +751,25 @@ namespace Crew.App.Services
                             }).ToArray()
                         });
                     }
+                    else if (msg.Role == "user" && msg.Content.StartsWith("[工具结果"))
+                    {
+                        // Tool results need role: "tool" + tool_call_id for OpenAI/DeepSeek
+                        var toolResults = ParseToolResults(msg.Content);
+                        foreach (var tr in toolResults)
+                        {
+                            messages.Add(new
+                            {
+                                role = "tool",
+                                tool_call_id = tr.Id,
+                                content = tr.Result
+                            });
+                        }
+                    }
                     else
                     {
                         messages.Add(new
                         {
-                            role = msg.Role,
+                            role = msg.Role == "system" ? "system" : msg.Role,
                             content = msg.Content
                         });
                     }
