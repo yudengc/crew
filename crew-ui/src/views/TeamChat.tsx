@@ -45,7 +45,6 @@ export default function TeamChat() {
   const [mentionSuggest, setMentionSuggest] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   const sendLockRef = useRef(false);
-  const sentIdsRef = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
