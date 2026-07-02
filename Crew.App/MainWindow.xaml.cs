@@ -248,7 +248,7 @@ namespace Crew.App
                         "unpublishAgent" => _dataService.UnpublishAgent(payload.Id),
                         "getListing" => _dataService.GetListingForAgent(payload.Id),
 "getWorkspaces" => _dataService.GetWorkspaces(),
-"getWorkspace" => _dataService.GetWorkspace(payload.Data, payload.Id),
+"getWorkspace" => GetWorkspaceHelper(payload.Data),
 "saveWorkspaceMessage" => _dataService.SaveWorkspaceMessage(payload.Data),
 			"runAgentInWorkspace" => await RunAgentInWorkspaceAsync(payload.Data),
                         "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
@@ -280,6 +280,19 @@ namespace Crew.App
                 error = error
             });
             WebView.CoreWebView2.PostWebMessageAsJson(response);
+        }
+
+        private string GetWorkspaceHelper(string? data)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data ?? "{}");
+                var root = doc.RootElement;
+                var agentId = root.GetProperty("agentId").GetString() ?? "";
+                var teamId = root.GetProperty("teamId").GetString() ?? "";
+                return _dataService.GetWorkspace(agentId, teamId);
+            }
+            catch { return _dataService.GetWorkspace(data, ""); }
         }
 
         // ── Agent workspace execution ─────────────────────────
