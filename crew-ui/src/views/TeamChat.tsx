@@ -196,18 +196,52 @@ export default function TeamChat() {
       const valid = results.filter(Boolean) as ChatMessage[];
       setMsgs(prev => [...prev, ...valid]);
 
-      // Auto-dispatch: manager's @mentions create workspace tasks
+      // Auto-dispatch: manager's @mentions → workspace tasks + agents respond in chat
       for (const msg of valid) {
         const agent = agents.find(a => a.id === msg.agentId);
-        if (agent && team.members.find(m => m.agentId === agent.id && m.isManager)) {
-          const { targetAgentIds: dispatched, cleanText: instruction } = parseMentions(msg.content, agents);
-          for (const aid of dispatched) {
-            const target = agents.find(a => a.id === aid);
-            if (target && aid !== agent.id) {
-              const taskMsg = `[来自管理者 ${agent.name} 的任务]\n${instruction || msg.content}`;
-              await saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
+        if (!agent || !team.members.find(m => m.agentId === agent.id)) continue;
+        const { targetAgentIds: dispatched, cleanText: instruction } = parseMentions(msg.content, agents);
+        if (dispatched.length === 0) continue;
+
+        // Trigger responses from @mentioned agents
+        for (const aid of dispatched) {
+          const target = agents.find(a => a.id === aid);
+          if (!target || aid === agent.id) continue;
+
+          // Create workspace task
+          const taskMsg = `[${agent.isManager ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
+          saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
+
+          // Also have the agent respond directly in the chat
+          const streamId = crypto.randomUUID();
+          setThinking(prev => [...prev, target.name]);
+          const streamMsg: StreamingMsg = {
+            id: streamId, agentId: target.id, agentName: target.name,
+            avatar: target.avatar, content: '', timestamp: new Date().toISOString(), done: false,
+          };
+          setStreaming(prev => [...prev, streamMsg]);
+
+          streamCallAi(
+            `你是团队「${team.name}」的成员「${target.name}」，${target.description || '团队成员'}。\n\n${history}\n\n${agent.name} 在协作群中 @了你：「${instruction || msg.content}」\n\n请直接回复确认收到任务并简要说明你接下来会怎么做。50-100字，直接回复，不要加前缀。`,
+            (chunk) => {
+              setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, content: s.content + chunk } : s));
+            },
+            target.config,
+          ).then(async (fullText) => {
+            setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, done: true } : s));
+            if (fullText.trim()) {
+              const am: ChatMessage = {
+                id: crypto.randomUUID(), teamId, agentId: target.id,
+                agentName: target.name, avatar: target.avatar,
+                content: fullText, isUser: false, timestamp: new Date().toISOString(),
+              };
+              await sendChatMessage(teamId, target.id, target.name, fullText, false, am.id, target.avatar);
+              setMsgs(prev => [...prev, am]);
             }
-          }
+          }).catch(() => {}).finally(() => {
+            setThinking(prev => prev.filter(n => n !== target.name));
+            setStreaming(prev => prev.filter(s => s.id !== streamId));
+          });
         }
       }
     }
