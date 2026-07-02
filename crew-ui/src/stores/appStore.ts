@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem } from '../types';
+import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem, AgentWorkspace } from '../types';
 import { bridgeSend, streamAiChat } from '../utils/bridge';
 
 interface AppState {
@@ -8,7 +8,7 @@ interface AppState {
   tasks: TaskItem[];
   marketplace: MarketplaceAgent[];
   settings: Settings;
-  currentView: 'onboarding' | 'marketplace' | 'teams' | 'chat' | 'tasks' | 'agentFactory' | 'settings';
+  currentView: 'onboarding' | 'marketplace' | 'teams' | 'chat' | 'tasks' | 'agentFactory' | 'settings' | 'workspace';
   isLoading: boolean;
   error: string | null;
 
@@ -31,6 +31,8 @@ interface AppState {
   callAi: (prompt: string, config?: Partial<Agent['config']>) => Promise<string>;
   streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>) => Promise<string>;
   cancelTask: (taskId: string) => Promise<boolean>;
+  getWorkspace: (agentId: string, teamId: string) => Promise<AgentWorkspace | null>;
+  saveWorkspaceMessage: (agentId: string, teamId: string, role: string, content: string) => Promise<void>;
 
   // 新功能
   addMemberToTeam: (teamId: string, agentId: string, role?: string) => Promise<boolean>;
@@ -125,6 +127,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       return true;
     }
     return false;
+  },
+
+  getWorkspace: async (agentId, teamId) => {
+    const data = await bridgeSend('getWorkspace', JSON.stringify({ agentId, teamId }));
+    if (data) return data as AgentWorkspace;
+    return null;
+  },
+
+  saveWorkspaceMessage: async (agentId, teamId, role, content) => {
+    await bridgeSend('saveWorkspaceMessage', JSON.stringify({ agentId, teamId, role, content }));
   },
 
   saveTeam: async (team) => {

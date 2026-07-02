@@ -247,6 +247,9 @@ namespace Crew.App
                         "publishAgent" => _dataService.PublishAgentToMarketplace(payload.Data),
                         "unpublishAgent" => _dataService.UnpublishAgent(payload.Id),
                         "getListing" => _dataService.GetListingForAgent(payload.Id),
+"getWorkspaces" => _dataService.GetWorkspaces(),
+"getWorkspace" => _dataService.GetWorkspace(payload.Data, payload.Id),
+"saveWorkspaceMessage" => _dataService.SaveWorkspaceMessage(payload.Data),
                         "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
                         _ => throw new ArgumentException($"Unknown action: {payload.Action}")
                     };

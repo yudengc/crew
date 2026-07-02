@@ -5,6 +5,7 @@ const navItems = [
   { key: 'marketplace', label: 'Agent 市场', icon: '🏪' },
   { key: 'teams', label: '我的团队', icon: '👥' },
   { key: 'chat', label: '协作群', icon: '💬' },
+  { key: 'workspace', label: '工作区', icon: '🧠' },
   { key: 'tasks', label: '任务中心', icon: '📋' },
   { key: 'agentFactory', label: 'Agent 工厂', icon: '🏭' },
   { key: 'settings', label: '设置', icon: '⚙️' },

@@ -49,6 +49,7 @@ const mockData: Record<string, unknown> = {
   teams: [],
   tasks: [],
   chats: {},
+  workspaces: [],
   marketplace: [
     { id: '1', name: '代码助手', description: '熟练掌握多种编程语言', capabilities: ['code_generation'], cost: 50, isBuiltIn: true },
     { id: '2', name: '数据分析员', description: '精通数据分析和可视化', capabilities: ['data_analysis'], cost: 80, isBuiltIn: true },
@@ -71,6 +72,28 @@ function mockBridge(action: string, data?: unknown): unknown {
       const teamId = typeof data === 'string' ? data : '';
       const chat = (mockData.chats as Record<string, unknown>)[teamId];
       return chat || { teamId, messages: [] };
+    }
+    case 'getWorkspaces': return mockData.workspaces;
+    case 'getWorkspace': {
+      const wsData = parsed as Record<string, unknown>;
+      const workspaces = mockData.workspaces as Record<string, unknown>[];
+      const existing = workspaces.find(w =>
+        (w as Record<string,unknown>).agentId === wsData?.agentId && (w as Record<string,unknown>).teamId === wsData?.teamId);
+      if (existing) return existing;
+      const newWs = { id: crypto.randomUUID(), agentId: wsData?.agentId, teamId: wsData?.teamId, name: '', messages: [], createdAt: new Date().toISOString() };
+      workspaces.push(newWs);
+      return newWs;
+    }
+    case 'saveWorkspaceMessage': {
+      const wmData = parsed as Record<string, unknown>;
+      const workspaces = mockData.workspaces as Record<string, unknown>[];
+      let ws = workspaces.find(w =>
+        (w as Record<string,unknown>).agentId === wmData?.agentId && (w as Record<string,unknown>).teamId === wmData?.teamId);
+      if (!ws) { ws = { id: crypto.randomUUID(), agentId: wmData?.agentId, teamId: wmData?.teamId, name: '', messages: [], createdAt: new Date().toISOString() }; workspaces.push(ws); }
+      ((ws as Record<string,unknown>).messages as Record<string,unknown>[]).push({
+        role: wmData?.role, content: wmData?.content, timestamp: new Date().toISOString()
+      });
+      return ws;
     }
     case 'getListing': return null;
     case 'saveAgent': {

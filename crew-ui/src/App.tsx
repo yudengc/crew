@@ -6,6 +6,7 @@ import Onboarding from './views/Onboarding';
 import Marketplace from './views/Marketplace';
 import Teams from './views/Teams';
 import TeamChat from './views/TeamChat';
+import AgentWorkspaceView from './views/AgentWorkspace';
 import TaskCenter from './views/TaskCenter';
 import AgentFactory from './views/AgentFactory';
 import Settings from './views/Settings';
@@ -61,6 +62,7 @@ function App() {
           {currentView === 'marketplace' && <Marketplace />}
           {currentView === 'teams' && <Teams />}
           {currentView === 'chat' && <TeamChat />}
+          {currentView === 'workspace' && <AgentWorkspaceView />}
           {currentView === 'tasks' && <TaskCenter />}
           {currentView === 'agentFactory' && <AgentFactory />}
           {currentView === 'settings' && <Settings />}

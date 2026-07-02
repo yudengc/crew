@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -35,6 +36,7 @@ namespace Crew.App.Services
             EnsureFile("settings.json", GetDefaultSettings());
             EnsureFile("chats.json", "[]");
             EnsureFile("listings.json", "[]");
+            EnsureFile("workspaces.json", "[]");
         }
 
         private void EnsureFile(string filename, string defaultContent)
@@ -349,6 +351,63 @@ namespace Crew.App.Services
             return JsonSerializer.Serialize(listing, _jsonOptions);
         }
 
+        // ── Agent Workspace ──────────────────────────────────────
+
+        public string GetWorkspaces() => ReadFile("workspaces.json");
+
+        public string GetWorkspace(string? agentId, string? teamId)
+        {
+            if (string.IsNullOrEmpty(agentId)) return "null";
+            var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
+                ReadFile("workspaces.json"), _jsonOptions) ?? new();
+            var ws = workspaces.FirstOrDefault(w => w.AgentId == agentId && w.TeamId == teamId);
+            if (ws == null)
+            {
+                ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId ?? "", Name = "" };
+                workspaces.Add(ws);
+                WriteFile("workspaces.json", JsonSerializer.Serialize(workspaces, _jsonOptions));
+            }
+            return JsonSerializer.Serialize(ws, _jsonOptions);
+        }
+
+        public string SaveWorkspaceMessage(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var incoming = JsonSerializer.Deserialize<JsonElement>(data, _jsonOptions);
+                var agentId = incoming.GetProperty("agentId").GetString() ?? "";
+                var teamId = incoming.GetProperty("teamId").GetString() ?? "";
+                var role = incoming.GetProperty("role").GetString() ?? "user";
+                var content = incoming.GetProperty("content").GetString() ?? "";
+
+                var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
+                    ReadFile("workspaces.json"), _jsonOptions) ?? new();
+                var ws = workspaces.FirstOrDefault(w => w.AgentId == agentId && w.TeamId == teamId);
+                if (ws == null)
+                {
+                    ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId, Name = "" };
+                    workspaces.Add(ws);
+                }
+
+                ws.Messages.Add(new WorkspaceMessage
+                {
+                    Role = role,
+                    Content = content,
+                    Timestamp = DateTime.Now
+                });
+
+                // Keep only last 100 messages
+                if (ws.Messages.Count > 100)
+                    ws.Messages = ws.Messages.Skip(ws.Messages.Count - 100).ToList();
+
+                WriteFile("workspaces.json", JsonSerializer.Serialize(workspaces, _jsonOptions));
+                return JsonSerializer.Serialize(ws, _jsonOptions);
+            }
+            finally { _writeLock.Release(); }
+        }
+
         public void Dispose()
         {
             _writeLock.Dispose();
@@ -448,6 +507,26 @@ namespace Crew.App.Services
         public string? Avatar { get; set; }
         public string Content { get; set; } = "";
         public bool IsUser { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public string? ReplyTo { get; set; }
+        public string? TargetAgentId { get; set; }
+        public string MessageType { get; set; } = "chat"; // chat | task | report | question
+    }
+
+    public class AgentWorkspace
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string TeamId { get; set; } = "";
+        public string AgentId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public List<WorkspaceMessage> Messages { get; set; } = new();
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
+
+    public class WorkspaceMessage
+    {
+        public string Role { get; set; } = "user"; // system | user | assistant
+        public string Content { get; set; } = "";
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 

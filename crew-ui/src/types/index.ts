@@ -21,6 +21,9 @@ export interface ChatMessage {
   content: string;
   isUser: boolean;
   timestamp: string;
+  replyTo?: string;
+  targetAgentId?: string;
+  messageType?: 'chat' | 'task' | 'report' | 'question';
 }
 
 export interface AgentPersonality {
@@ -88,6 +91,21 @@ export interface Settings {
   deepseekApiKey: string;
   defaultModel: string;
   hasCompletedOnboarding: boolean;
+}
+
+export interface WorkspaceMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+export interface AgentWorkspace {
+  id: string;
+  teamId: string;
+  agentId: string;
+  name: string;
+  messages: WorkspaceMessage[];
+  createdAt: string;
 }
 
 export interface ListingItem {
