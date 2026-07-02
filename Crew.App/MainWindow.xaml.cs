@@ -250,6 +250,7 @@ namespace Crew.App
 "getWorkspaces" => _dataService.GetWorkspaces(),
 "getWorkspace" => _dataService.GetWorkspace(payload.Data, payload.Id),
 "saveWorkspaceMessage" => _dataService.SaveWorkspaceMessage(payload.Data),
+			"runAgentInWorkspace" => await RunAgentInWorkspaceAsync(payload.Data),
                         "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
                         _ => throw new ArgumentException($"Unknown action: {payload.Action}")
                     };
@@ -279,6 +280,77 @@ namespace Crew.App
                 error = error
             });
             WebView.CoreWebView2.PostWebMessageAsJson(response);
+        }
+
+        // ── Agent workspace execution ─────────────────────────
+
+        private async Task<string> RunAgentInWorkspaceAsync(string? data)
+        {
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                using var doc = JsonDocument.Parse(data ?? "{}");
+                var root = doc.RootElement;
+                var agentId = root.GetProperty("agentId").GetString() ?? "";
+                var teamId = root.GetProperty("teamId").GetString() ?? "";
+                var task = root.GetProperty("task").GetString() ?? "";
+                var context = root.TryGetProperty("context", out var ctx) ? ctx.GetString() : "";
+
+                // Load agent config
+                var agents = JsonSerializer.Deserialize<List<Agent>>(
+                    _dataService.GetAgents(), opts) ?? new();
+                var agent = agents.FirstOrDefault(a => a.Id == agentId);
+                if (agent == null) return JsonSerializer.Serialize(new { error = "Agent not found" });
+
+                var settings = JsonSerializer.Deserialize<AppSettings>(
+                    _dataService.GetSettings(), opts);
+                if (settings == null) return JsonSerializer.Serialize(new { error = "Settings not found" });
+
+                // Build AgentLoopRequest for deep thinking
+                var loopReq = new AgentLoopRequest
+                {
+                    Task = $"任务背景：\n{context}\n\n当前任务：\n{task}\n\n请在私有工作区深入思考并执行。可以使用工具辅助。完成后给出详细结果。",
+                    AgentName = agent.Name,
+                    AgentDescription = agent.Description ?? "",
+                    CommunicationStyle = agent.Personality?.CommunicationStyle ?? "专业",
+                    DecisionMaking = agent.Personality?.DecisionMaking ?? "理性",
+                    ModelId = agent.Config.ModelId ?? settings.DefaultModel,
+                    Temperature = agent.Config.Temperature,
+                    MaxTokens = agent.Config.MaxTokens,
+                    MaxIterations = 10
+                };
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+                var result = await _aiService.RunAgentLoopAsync(loopReq, settings, null, cts.Token);
+
+                // Parse result
+                string finalText;
+                try
+                {
+                    using var resultDoc = JsonDocument.Parse(result);
+                    finalText = resultDoc.RootElement.TryGetProperty("result", out var r)
+                        ? r.GetString() ?? result
+                        : result;
+                }
+                catch { finalText = result; }
+
+                // Save to workspace
+                var wsMsg = JsonSerializer.Serialize(new
+                {
+                    agentId, teamId,
+                    role = "assistant",
+                    content = $"[Agent Loop 执行结果]\n\n{finalText}"
+                });
+                _dataService.SaveWorkspaceMessage(wsMsg);
+
+                Log.Information("Agent workspace execution: {Agent} completed task", agent.Name);
+                return JsonSerializer.Serialize(new { result = finalText });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Agent workspace execution failed");
+                return JsonSerializer.Serialize(new { error = ex.Message });
+            }
         }
 
         private static string InjectBridgeIntoHtml(string html)

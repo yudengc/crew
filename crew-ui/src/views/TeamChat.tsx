@@ -209,40 +209,47 @@ export default function TeamChat() {
           if (!target || aid === agent.id) continue;
 
           // Create workspace task
-          const isManager = team.members.find(m => m.agentId === agent.id)?.isManager;
-          const taskMsg = `[${isManager ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
+          const isMgr = team.members.find(m => m.agentId === agent.id)?.isManager;
+          const taskMsg = `[${isMgr ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
           saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
 
-          // Also have the agent respond directly in the chat
-          const streamId = crypto.randomUUID();
+          // Agent acknowledges briefly in chat
           setThinking(prev => [...prev, target.name]);
-          const streamMsg: StreamingMsg = {
-            id: streamId, agentId: target.id, agentName: target.name,
-            avatar: target.avatar, content: '', timestamp: new Date().toISOString(), done: false,
+          const ackMsg: ChatMessage = {
+            id: crypto.randomUUID(), teamId, agentId: target.id,
+            agentName: target.name, avatar: target.avatar,
+            content: `收到，我来处理。`,
+            isUser: false, timestamp: new Date().toISOString(),
           };
-          setStreaming(prev => [...prev, streamMsg]);
+          await sendChatMessage(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar);
+          setMsgs(prev => [...prev, ackMsg]);
+          setThinking(prev => prev.filter(n => n !== target.name));
 
-          streamCallAi(
-            `你是团队「${team.name}」的成员「${target.name}」，${target.description || '团队成员'}。\n\n${history}\n\n${agent.name} 在协作群中 @了你：「${instruction || msg.content}」\n\n请直接回复确认收到任务并简要说明你接下来会怎么做。50-100字，直接回复，不要加前缀。`,
-            (chunk) => {
-              setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, content: s.content + chunk } : s));
-            },
-            target.config,
-          ).then(async (fullText) => {
-            setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, done: true } : s));
-            if (fullText.trim()) {
-              const am: ChatMessage = {
+          // Agent works in private workspace using ReAct loop (code-driven, not prompt-driven)
+          const { bridgeSend } = await import('../utils/bridge');
+          bridgeSend('runAgentInWorkspace', JSON.stringify({
+            agentId: target.id, teamId,
+            task: instruction || msg.content,
+            context: history
+          })).then(async (result: unknown) => {
+            const data = result as Record<string, unknown> | null;
+            if (data?.result) {
+              // Save thinking to workspace
+              await saveWorkspaceMessage(aid, teamId, 'assistant', String(data.result)).catch(() => {});
+              // Post execution summary to team chat
+              const summary = String(data.result).length > 200
+                ? String(data.result).slice(0, 200) + '...（详见工作区）'
+                : String(data.result);
+              const report: ChatMessage = {
                 id: crypto.randomUUID(), teamId, agentId: target.id,
                 agentName: target.name, avatar: target.avatar,
-                content: fullText, isUser: false, timestamp: new Date().toISOString(),
+                content: `📋 执行完成：\n${summary}`,
+                isUser: false, timestamp: new Date().toISOString(),
               };
-              await sendChatMessage(teamId, target.id, target.name, fullText, false, am.id, target.avatar);
-              setMsgs(prev => [...prev, am]);
+              await sendChatMessage(teamId, target.id, target.name, report.content, false, report.id, target.avatar);
+              setMsgs(prev => [...prev, report]);
             }
-          }).catch(() => {}).finally(() => {
-            setThinking(prev => prev.filter(n => n !== target.name));
-            setStreaming(prev => prev.filter(s => s.id !== streamId));
-          });
+          }).catch(() => {});
         }
       }
     }

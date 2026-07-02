@@ -95,6 +95,15 @@ function mockBridge(action: string, data?: unknown): unknown {
       });
       return ws;
     }
+    case 'runAgentInWorkspace': {
+      // Mock: simulate agent working in workspace, then return result
+      const wsData = parsed as Record<string, unknown>;
+      const agentName = ((mockData.agents as Record<string,unknown>[]).find(a => (a as Record<string,unknown>).id === wsData?.agentId) as Record<string,unknown>)?.name || 'Agent';
+      return {
+        result: `[${agentName} 在私有工作区执行完成]\n\n已分析需求并完成相关操作。\n\n关键发现：\n- 系统功能正常，可以调用工具\n- 使用工具完成了文件读取和命令执行\n- 结果已保存到工作区\n\n（在桌面应用中运行可获得真实的 Agent Loop 执行结果——包括工具调用、多轮思考等）`,
+        iterations: 3
+      };
+    }
     case 'getListing': return null;
     case 'saveAgent': {
       const agent = parsed as Record<string, unknown>;
