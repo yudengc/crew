@@ -19,15 +19,21 @@ function getAvatarColor(name: string): string {
 }
 
 function parseMentions(text: string, agents: Agent[]) {
-  const mentionRegex = /@(\S+)/g;
   const mentioned = new Set<string>();
+  // Match @AgentName
+  const atRegex = /@(\S+)/g;
   let m;
-  while ((m = mentionRegex.exec(text)) !== null) {
+  while ((m = atRegex.exec(text)) !== null) {
     const agent = agents.find(a => a.name === m![1]);
     if (agent) mentioned.add(agent.id);
   }
-  const cleanText = text.replace(mentionRegex, '').trim();
-  return { targetAgentIds: [...mentioned], cleanText: cleanText || text.trim() };
+  // Fallback: detect agent names without @ (e.g. **代码助手**)
+  if (mentioned.size === 0) {
+    for (const agent of agents) {
+      if (text.includes(agent.name)) mentioned.add(agent.id);
+    }
+  }
+  return { targetAgentIds: [...mentioned], cleanText: text.trim() };
 }
 
 export default function TeamChat() {

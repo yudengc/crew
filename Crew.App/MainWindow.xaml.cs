@@ -367,7 +367,8 @@ private string GetAllWorkspaceHelper(string? data)
                 if (!string.IsNullOrEmpty(sessionName))
                     teamCtx.Add($"\n当前会话：{sessionName}");
 
-                var fullTask = $"你所在团队：{team?.Name ?? ""}\n{string.Join("\n", teamCtx)}\n\n---\n协作群最近对话：\n{context}\n\n---\n当前任务：\n{task}\n\n请处理以上任务。如果是简单问答直接回复，只有确实需要文件操作、执行命令时才使用工具。完成后给出对协作群最合适的回复（简洁、专业）。";
+                var fullTask = $"你所在团队：{team?.Name ?? ""}\n{string.Join("\n", teamCtx)}\n\n---\n协作群最近对话：\n{context}\n\n---\n当前任务：\n{task}\n\n请处理以上任务。如果是简单问答直接回复，只有确实需要文件操作、执行命令时才使用工具。如果需要指派成员，必须使用 @成员名 格式（如 @代码助手），不能用加粗或其他格式。
+完成后给出对协作群最合适的回复（简洁、专业）。";
 
                 // Log context for debugging
                 Log.Information("[AGENT_CTX] Session='{Session}' Agent='{Agent}' Task='{Task}' Context='{Ctx}'",
