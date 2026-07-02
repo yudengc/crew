@@ -104,6 +104,34 @@ function mockBridge(action: string, data?: unknown): unknown {
         iterations: 3
       };
     }
+    case 'getSessions': {
+      const tId = typeof data === 'string' ? data : '';
+      const all = (mockData.chats as Record<string, Record<string, unknown>[]>);
+      const teamSessions = (all[tId] || []) as Record<string, unknown>[];
+      if (teamSessions.length === 0) {
+        const def = { id: crypto.randomUUID(), teamId: tId, name: '默认会话', messages: [] };
+        all[tId] = [def];
+        return [def];
+      }
+      return teamSessions;
+    }
+    case 'getSession': {
+      const sId = typeof data === 'string' ? data : '';
+      for (const sessions of Object.values(mockData.chats as Record<string, Record<string, unknown>[]>)) {
+        const found = sessions.find(s => (s as Record<string,unknown>).id === sId);
+        if (found) return found;
+      }
+      return { id: sId, messages: [] };
+    }
+    case 'createSession': {
+      const cd = parsed as Record<string, unknown>;
+      const session = { id: crypto.randomUUID(), teamId: cd?.teamId, name: cd?.name || '新会话', messages: [] };
+      const all = mockData.chats as Record<string, Record<string, unknown>[]>;
+      const tId = cd?.teamId as string;
+      if (!all[tId]) all[tId] = [];
+      all[tId].push(session);
+      return session;
+    }
     case 'getListing': return null;
     case 'saveAgent': {
       const agent = parsed as Record<string, unknown>;

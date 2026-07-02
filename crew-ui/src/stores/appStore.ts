@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem, AgentWorkspace } from '../types';
+import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem, AgentWorkspace, ChatSession } from '../types';
 import { bridgeSend, streamAiChat } from '../utils/bridge';
 
 interface AppState {
@@ -38,6 +38,9 @@ interface AppState {
   addMemberToTeam: (teamId: string, agentId: string, role?: string) => Promise<boolean>;
   removeMemberFromTeam: (teamId: string, agentId: string) => Promise<boolean>;
   getChat: (teamId: string) => Promise<ChatMessage[]>;
+  getSessions: (teamId: string) => Promise<ChatSession[]>;
+  createSession: (teamId: string, name: string) => Promise<ChatSession | null>;
+  getSessionMessages: (sessionId: string) => Promise<ChatMessage[]>;
   sendChatMessage: (teamId: string, agentId: string, agentName: string, content: string, isUser: boolean, msgId?: string, avatar?: string) => Promise<ChatMessage | null>;
   publishAgent: (agentId: string, price: number) => Promise<boolean>;
   unpublishAgent: (agentId: string) => Promise<boolean>;
@@ -129,6 +132,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return false;
   },
 
+getSessions: async (teamId) => { const data = await bridgeSend('getSessions', teamId); return (data as ChatSession[]) || []; },  createSession: async (teamId, name) => { const data = await bridgeSend('createSession', JSON.stringify({ teamId, name })); return data as ChatSession | null; },  getSessionMessages: async (sessionId) => { const data = await bridgeSend('getSession', sessionId); if (data && typeof data === 'object') { const s = data as ChatSession; return s.messages || []; } return []; },
   getWorkspace: async (agentId, teamId) => {
     const data = await bridgeSend('getWorkspace', JSON.stringify({ agentId, teamId }));
     if (data) return data as AgentWorkspace;

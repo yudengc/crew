@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useAppStore } from '../stores/appStore';
-import type { Agent, ChatMessage } from '../types';
+import type { Agent, ChatMessage, ChatSession } from '../types';
 
 interface StreamingMsg {
   id: string; agentId: string; agentName: string; avatar?: string;
@@ -31,8 +31,10 @@ function parseMentions(text: string, agents: Agent[]) {
 }
 
 export default function TeamChat() {
-  const { teams, agents, tasks, getChat, sendChatMessage, streamCallAi, saveWorkspaceMessage } = useAppStore();
+  const { teams, agents, tasks, getChat, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages } = useAppStore();
   const [teamId, setTeamId] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,12 +52,25 @@ export default function TeamChat() {
   const managerAgent = manager ? agents.find(a => a.id === manager.agentId) : null;
   const teamAgents = agents.filter(a => team?.members.some(m => m.agentId === a.id));
 
-  useEffect(() => { if (teamId) load(); }, [teamId]);
-
+  // Load sessions when team changes
   useEffect(() => {
-    if (!teamId) return;
+    if (!teamId) { setSessions([]); setSessionId(''); setMsgs([]); return; }
+    getSessions(teamId).then(s => {
+      setSessions(s);
+      if (s.length > 0 && s[0].id !== sessionId) {
+        setSessionId(s[0].id);
+      }
+    }).catch(() => {});
+  }, [teamId]);
+
+  // Load messages when session changes
+  useEffect(() => { if (sessionId) loadSession(); }, [sessionId]);
+
+  // Poll for new messages
+  useEffect(() => {
+    if (!sessionId) return;
     const id = setInterval(() => {
-      getChat(teamId).then(latest => {
+      getSessionMessages(sessionId).then(latest => {
         setMsgs(prev => {
           const ids = new Set(prev.map(m => m.id));
           const fresh = latest.filter(m => !ids.has(m.id));
@@ -64,9 +79,22 @@ export default function TeamChat() {
       }).catch(err => { console.error('Chat poll error:', err); });
     }, 3000);
     return () => clearInterval(id);
-  }, [teamId]);
+  }, [sessionId]);
 
-  const load = async () => { const c = await getChat(teamId); setMsgs(c); };
+  const loadSession = async () => {
+    const ms = await getSessionMessages(sessionId);
+    setMsgs(ms);
+  };
+
+  const newSession = async () => {
+    if (!teamId) return;
+    const name = `会话 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+    const s = await createSession(teamId, name);
+    if (s) {
+      setSessions(prev => [...prev, s]);
+      setSessionId(s.id);
+    }
+  };
 
   const scrollDown = () => { if (nearBottom.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); };
   const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -112,7 +140,7 @@ export default function TeamChat() {
     }
 
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(), teamId, agentId: 'user',
+      id: crypto.randomUUID(), teamId, sessionId, agentId: 'user',
       agentName: '我', content: input, isUser: true, timestamp: new Date().toISOString(),
     };
     await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id);
@@ -346,7 +374,7 @@ export default function TeamChat() {
 
   return (
     <div className="flex h-[calc(100vh-1px)]">
-      {/* Team list sidebar */}
+      {/* Team + Sessions sidebar */}
       <div className="w-56 border-r border-gray-200 bg-gray-50 flex flex-col">
         <div className="p-3 border-b border-gray-200 bg-white">
           <h3 className="text-sm font-semibold text-gray-700">协作群</h3>
@@ -354,26 +382,36 @@ export default function TeamChat() {
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {teams.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-8">暂无团队，先去「我的团队」创建</p>
+            <p className="text-xs text-gray-400 text-center py-8">暂无团队</p>
           )}
           {teams.map(t => {
-            const m = t.members.find(mb => mb.isManager);
-            const ma = m ? agents.find(a => a.id === m.agentId) : null;
             const active = t.id === teamId;
             return (
-              <button key={t.id} onClick={() => setTeamId(t.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
-                  active ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-gray-600 hover:bg-gray-100'
-                }`}>
-                <div className="font-medium flex items-center gap-1.5">
-                  <span className="text-base">{active ? '💬' : '💬'}</span>
-                  {t.name}
-                </div>
-                <div className="flex items-center gap-1 mt-1">
-                  {ma && <span className={`w-4 h-4 rounded-full text-[8px] flex items-center justify-center text-white ${getAvatarColor(ma.name)}`}>{ma.avatar || ma.name.charAt(0)}</span>}
-                  <span className="text-[11px] text-gray-400">{t.members.length} 人{ma ? ` · 👑${ma.name}` : ' · ⚠️无管理'}</span>
-                </div>
-              </button>
+              <div key={t.id}>
+                <button onClick={() => setTeamId(t.id)}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                  }`}>
+                  💬 {t.name}
+                  <span className="text-[11px] text-gray-400 ml-1">{t.members.length}人</span>
+                </button>
+                {active && (
+                  <div className="ml-3 mt-0.5 space-y-0.5">
+                    {sessions.map(s => (
+                      <button key={s.id} onClick={() => setSessionId(s.id)}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all ${
+                          s.id === sessionId ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-100'
+                        }`}>
+                        # {s.name}
+                      </button>
+                    ))}
+                    <button onClick={newSession}
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all">
+                      ＋ 新会话
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

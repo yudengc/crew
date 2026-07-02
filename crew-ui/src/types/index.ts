@@ -12,9 +12,17 @@ export interface Agent {
   createdAt: string;
 }
 
+export interface ChatSession {
+  id: string;
+  teamId: string;
+  name: string;
+  messages: ChatMessage[];
+}
+
 export interface ChatMessage {
   id: string;
   teamId: string;
+  sessionId?: string;
   agentId: string;
   agentName: string;
   avatar?: string;

@@ -268,12 +268,57 @@ namespace Crew.App.Services
             }
         }
 
+        public string GetSessions(string? teamId)
+        {
+            if (string.IsNullOrEmpty(teamId)) return "[]";
+            var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+            var sessions = chats.Where(c => c.TeamId == teamId).ToList();
+            if (sessions.Count == 0)
+            {
+                var defaultSession = new ChatSession { TeamId = teamId, Name = "默认会话" };
+                chats.Add(defaultSession);
+                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                sessions.Add(defaultSession);
+            }
+            return JsonSerializer.Serialize(sessions, _jsonOptions);
+        }
+
+        public string CreateSession(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "null";
+            _writeLock.Wait();
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                var teamId = root.GetProperty("teamId").GetString() ?? "";
+                var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "新会话" : "新会话";
+
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                var session = new ChatSession { Id = Guid.NewGuid().ToString(), TeamId = teamId, Name = name };
+                chats.Add(session);
+                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                return JsonSerializer.Serialize(session, _jsonOptions);
+            }
+            finally { _writeLock.Release(); }
+        }
+
         public string GetChat(string? teamId)
         {
             if (string.IsNullOrEmpty(teamId)) return "null";
             var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
-            var chat = chats.Find(c => c.TeamId == teamId);
+            // Return the first (default) session for backward compat
+            var chat = chats.FirstOrDefault(c => c.TeamId == teamId);
             return JsonSerializer.Serialize(chat ?? new ChatSession { TeamId = teamId, Messages = new() }, _jsonOptions);
+        }
+
+        public string GetSession(string? sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId)) return "null";
+            var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+            var chat = chats.FirstOrDefault(c => c.Id == sessionId);
+            return JsonSerializer.Serialize(chat ?? new ChatSession { Messages = new() }, _jsonOptions);
         }
 
         public string SaveChatMessage(string? data)
@@ -286,10 +331,16 @@ namespace Crew.App.Services
                 var msg = JsonSerializer.Deserialize<ChatMessage>(data, _jsonOptions);
                 if (msg == null) return "null";
 
-                var chat = chats.Find(c => c.TeamId == msg.TeamId);
+                // Find by sessionId first, fall back to teamId
+                ChatSession? chat = null;
+                if (!string.IsNullOrEmpty(msg.SessionId))
+                    chat = chats.FirstOrDefault(c => c.Id == msg.SessionId);
+                if (chat == null)
+                    chat = chats.FirstOrDefault(c => c.TeamId == msg.TeamId);
+
                 if (chat == null)
                 {
-                    chat = new ChatSession { TeamId = msg.TeamId, Messages = new() };
+                    chat = new ChatSession { TeamId = msg.TeamId, Name = "默认会话" };
                     chats.Add(chat);
                 }
 
@@ -297,10 +348,7 @@ namespace Crew.App.Services
                 WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
                 return JsonSerializer.Serialize(msg, _jsonOptions);
             }
-            finally
-            {
-                _writeLock.Release();
-            }
+            finally { _writeLock.Release(); }
         }
 
         public string PublishAgentToMarketplace(string? data)
@@ -494,7 +542,9 @@ namespace Crew.App.Services
 
     public class ChatSession
     {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
         public string TeamId { get; set; } = "";
+        public string Name { get; set; } = "默认会话";
         public List<ChatMessage> Messages { get; set; } = new();
     }
 
@@ -502,6 +552,7 @@ namespace Crew.App.Services
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string TeamId { get; set; } = "";
+        public string? SessionId { get; set; }
         public string AgentId { get; set; } = "";
         public string AgentName { get; set; } = "";
         public string? Avatar { get; set; }
