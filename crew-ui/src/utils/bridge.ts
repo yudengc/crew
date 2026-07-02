@@ -33,6 +33,17 @@ export async function bridgeSend(action: string, data?: unknown): Promise<unknow
   return mockBridge(action, data);
 }
 
+// Load persisted settings from localStorage for browser dev mode
+const defaultSettings = {
+  theme: 'light', aiProvider: 'deepseek', hasCompletedOnboarding: false,
+  claudeApiKey: '', openAiApiKey: '', deepseekApiKey: '', defaultModel: 'deepseek-chat'
+};
+let savedSettings: Record<string, unknown> | null = null;
+try {
+  const raw = localStorage.getItem('crew-settings');
+  if (raw) savedSettings = JSON.parse(raw);
+} catch { /* ignore */ }
+
 const mockData: Record<string, unknown> = {
   agents: [],
   teams: [],
@@ -42,7 +53,7 @@ const mockData: Record<string, unknown> = {
     { id: '1', name: '代码助手', description: '熟练掌握多种编程语言', capabilities: ['code_generation'], cost: 50, isBuiltIn: true },
     { id: '2', name: '数据分析员', description: '精通数据分析和可视化', capabilities: ['data_analysis'], cost: 80, isBuiltIn: true },
   ],
-  settings: { theme: 'light', aiProvider: 'deepseek', hasCompletedOnboarding: false, claudeApiKey: '', openAiApiKey: '', deepseekApiKey: '', defaultModel: 'deepseek-chat' },
+  settings: savedSettings || defaultSettings,
   listings: [],
 };
 
@@ -117,6 +128,7 @@ function mockBridge(action: string, data?: unknown): unknown {
     case 'unpublishAgent': return true;
     case 'saveSettings': {
       mockData.settings = parsed as typeof mockData.settings;
+      try { localStorage.setItem('crew-settings', JSON.stringify(mockData.settings)); } catch { /* ignore */ }
       return mockData.settings;
     }
     case 'executeTaskOrchestrated': {
