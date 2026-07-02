@@ -29,9 +29,10 @@ interface AppState {
   saveSettings: (settings: Settings) => Promise<void>;
   purchaseAgent: (agent: MarketplaceAgent) => Promise<boolean>;
   callAi: (prompt: string, config?: Partial<Agent['config']>) => Promise<string>;
-  streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>) => Promise<string>;
+  streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>, signal?: AbortSignal) => Promise<string>;
   cancelTask: (taskId: string) => Promise<boolean>;
   getWorkspace: (agentId: string, teamId: string, sessionId?: string) => Promise<AgentWorkspace | null>;
+  getAllWorkspaceMessages: (agentId: string, teamId: string) => Promise<AgentWorkspace | null>;
   saveWorkspaceMessage: (agentId: string, teamId: string, role: string, content: string, sessionId?: string, sessionName?: string) => Promise<void>;
 
   // 新功能
@@ -143,6 +144,7 @@ deleteSession: async (sessionId) => { const data = await bridgeSend('deleteSessi
     return null;
   },
 
+getAllWorkspaceMessages: async (agentId, teamId) => { const data = await bridgeSend('getAllWorkspaceMessages', JSON.stringify({ agentId, teamId })); return data as AgentWorkspace | null; },
   saveWorkspaceMessage: async (agentId, teamId, role, content, sessionId, sessionName) => {
     await bridgeSend('saveWorkspaceMessage', JSON.stringify({ agentId, teamId, role, content, sessionId, sessionName }));
   },
@@ -258,10 +260,10 @@ deleteSession: async (sessionId) => { const data = await bridgeSend('deleteSessi
     return '无响应';
   },
 
-  streamCallAi: async (prompt, onChunk, config) => {
+  streamCallAi: async (prompt, onChunk, config, signal) => {
     const settings = get().settings;
     const modelId = config?.model_id || settings.defaultModel;
-    return streamAiChat(prompt, modelId, onChunk);
+    return streamAiChat(prompt, modelId, onChunk, signal);
   },
 
   cancelTask: async (taskId) => {

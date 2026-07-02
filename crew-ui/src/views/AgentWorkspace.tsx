@@ -13,7 +13,7 @@ function agentColor(name: string) {
 }
 
 export default function AgentWorkspaceView() {
-  const { teams, agents, getWorkspace, saveWorkspaceMessage } = useAppStore();
+  const { teams, agents, getWorkspace, getAllWorkspaceMessages, saveWorkspaceMessage } = useAppStore();
   const [selected, setSelected] = useState<{ agentId: string; teamId: string; agentName: string } | null>(null);
   const [wsSessionId, setWsSessionId] = useState('__all__');
   const [ws, setWs] = useState<WS | null>(null);
@@ -24,7 +24,9 @@ export default function AgentWorkspaceView() {
   const controllerRef = useRef<AbortController | null>(null);
 
   const loadWorkspace = async (agentId: string, teamId: string, sessionId?: string) => {
-    const data = await getWorkspace(agentId, teamId, sessionId);
+    const data = sessionId
+      ? await getWorkspace(agentId, teamId, sessionId)
+      : await getAllWorkspaceMessages(agentId, teamId);
     setWs(data);
   };
 

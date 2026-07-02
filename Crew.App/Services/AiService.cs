@@ -565,6 +565,12 @@ namespace Crew.App.Services
                     await Task.Delay(delay, cancelToken);
                     delay *= 2;
                 }
+                catch (TaskCanceledException) when (attempt < maxRetries && !cancelToken.IsCancellationRequested)
+                {
+                    Log.Warning("Timeout, retry {Attempt}/{Max}", attempt + 1, maxRetries);
+                    await Task.Delay(delay, cancelToken);
+                    delay *= 2;
+                }
             }
             throw new InvalidOperationException("Unreachable retry loop");
         }

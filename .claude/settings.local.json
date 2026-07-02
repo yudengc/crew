@@ -89,7 +89,11 @@
       "Bash(sed -i 's/if \\(!input.trim\\(\\) || !teamId || !team || sendLockRef.current\\) return;/if \\(!input.trim\\(\\) || !teamId || !team || sendLockRef.current || busy\\) return;/' TeamChat.tsx)",
       "Bash(sed -i '/if \\(busy\\) { sendLockRef.current = false; return; }/d' TeamChat.tsx)",
       "Bash(sed -i 's/} catch \\(err\\) {$/} catch \\(err\\) { if \\(controller.signal.aborted\\) return null; toast.error\\(`代理回复失败`\\);/' TeamChat.tsx)",
-      "Bash(sed -i 's/if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/if \\(controller.signal.aborted\\) return null;\\\\n        return null;\\\\n      } catch \\(err\\) {\\\\n        if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/' TeamChat.tsx)"
+      "Bash(sed -i 's/if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/if \\(controller.signal.aborted\\) return null;\\\\n        return null;\\\\n      } catch \\(err\\) {\\\\n        if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/' TeamChat.tsx)",
+      "Bash(sed -i 's/streamCallAi: async \\(prompt, onChunk, config\\)/streamCallAi: async \\(prompt, onChunk, config, signal\\)/' stores/appStore.ts)",
+      "Bash(sed -i 's/return streamAiChat\\(prompt, modelId, onChunk\\);/return streamAiChat\\(prompt, modelId, onChunk, signal\\);/' stores/appStore.ts)",
+      "Bash(sed -i 's/streamCallAi: \\(prompt: string, onChunk: \\(text: string\\) => void, config?: Partial<Agent\\\\[.config.\\\\]>\\) => Promise<string>;/streamCallAi: \\(prompt: string, onChunk: \\(text: string\\) => void, config?: Partial<Agent\\\\[.config.\\\\]>, signal?: AbortSignal\\) => Promise<string>;/' stores/appStore.ts)",
+      "Bash(sed -i 's/getWorkspace,/getWorkspace, getAllWorkspaceMessages,/' views/AgentWorkspace.tsx)"
     ]
   }
 }

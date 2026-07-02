@@ -446,6 +446,19 @@ namespace Crew.App.Services
 
         public string GetWorkspaces() => ReadFile("workspaces.json");
 
+        public string GetAllWorkspaceMessages(string? agentId, string? teamId)
+        {
+            if (string.IsNullOrEmpty(agentId) || string.IsNullOrEmpty(teamId)) return "{}";
+            var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
+                ReadFile("workspaces.json"), _jsonOptions) ?? new();
+            var allMessages = workspaces
+                .Where(w => w.AgentId == agentId && w.TeamId == teamId)
+                .SelectMany(w => w.Messages)
+                .OrderBy(m => m.Timestamp)
+                .ToList();
+            return JsonSerializer.Serialize(new { agentId, teamId, messages = allMessages }, _jsonOptions);
+        }
+
         public string GetWorkspace(string? agentId, string? teamId, string? sessionId = null)
         {
             if (string.IsNullOrEmpty(agentId)) return "null";
@@ -500,6 +513,7 @@ namespace Crew.App.Services
                 });
 
                 // Keep only last 100 messages
+
                 if (ws.Messages.Count > 100)
                     ws.Messages = ws.Messages.Skip(ws.Messages.Count - 100).ToList();
 

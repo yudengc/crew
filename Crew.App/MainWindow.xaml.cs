@@ -254,6 +254,7 @@ namespace Crew.App
                         "getListing" => _dataService.GetListingForAgent(payload.Id),
 "getWorkspaces" => _dataService.GetWorkspaces(),
 "getWorkspace" => GetWorkspaceHelper(payload.Data),
+			"getAllWorkspaceMessages" => _dataService.GetAllWorkspaceMessages(payload.Data, payload.Id),
 "saveWorkspaceMessage" => _dataService.SaveWorkspaceMessage(payload.Data),
 			"runAgentInWorkspace" => await RunAgentInWorkspaceAsync(payload.Data),
                         "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
