@@ -418,19 +418,18 @@ export default function TeamChat() {
                             # {s.name}
                           </button>
                         )}
-                        {s.id === sessionId && (
-                          <div className="hidden group-hover:flex items-center mr-1">
-                            <button onClick={() => { setEditingSession(s.id); setEditName(s.name); }}
-                              className="p-1 text-gray-300 hover:text-blue-500" title="重命名">✎</button>
-                            <button onClick={async () => {
-                              if (confirm('删除此会话？')) {
-                                await deleteSession(s.id);
-                                setSessions(prev => prev.filter(x => x.id !== s.id));
-                                if (sessionId === s.id) { const remaining = sessions.filter(x => x.id !== s.id); setSessionId(remaining[0]?.id || ''); }
-                              }
-                            }} className="p-1 text-gray-300 hover:text-red-500" title="删除">×</button>
-                          </div>
-                        )}
+                        <div className="flex items-center mr-1">
+                          <button onClick={() => { setEditingSession(s.id); setEditName(s.name); }}
+                            className="p-1 text-gray-300 hover:text-blue-500" title="重命名">✎</button>
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm('删除此会话？')) {
+                              await deleteSession(s.id);
+                              setSessions(prev => prev.filter(x => x.id !== s.id));
+                              if (sessionId === s.id) { const remaining = sessions.filter(x => x.id !== s.id); setSessionId(remaining[0]?.id || ''); }
+                            }
+                          }} className="p-1 text-gray-300 hover:text-red-500" title="删除">×</button>
+                        </div>
                       </div>
                     ))}
                     <button onClick={newSession}
