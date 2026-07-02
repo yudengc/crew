@@ -154,11 +154,12 @@ export default function TeamChat() {
 
       try {
         const isManager = m.isManager;
+        const teamMembersCtx = `你所在团队：${team.name}\n${teamContext}`;
         const prompt = targetAgentIds.length > 0
-          ? `你是团队「${team.name}」的成员「${agent.name}」。\n\n${teamContext}\n\n团队协作群中 @了你。最近对话：\n${history}\n\n用户对你说：「${cleanText}」\n\n请回复。如果需要深度思考，去你的工作区执行。80-200字。`
+          ? `你是团队「${team.name}」的成员「${agent.name}」。\n\n${teamMembersCtx}\n\n你可以用 @成员名 与团队中的其他成员协作。\n\n团队协作群中 @了你。最近对话：\n${history}\n\n用户对你说：「${cleanText}」\n\n请回复。如需其他成员协助，@他们。80-200字。`
           : isManager
-            ? `你是团队「${team.name}」的管理者「${agent.name}」。\n\n${teamContext}\n\n协作群最近对话：\n${history}\n\n作为管理者，请：\n1. 分析当前需求\n2. 如有必要，@具体成员分配任务（如 \"@代码助手 请实现XX模块\"）\n3. 说明决策理由\n\n100-200字。`
-            : `你是「${agent.name}」，${agent.description || '团队成员'}。\n${history}\n\n报告工作进展。80-150字。`;
+            ? `你是团队「${team.name}」的管理者「${agent.name}」。\n\n${teamMembersCtx}\n\n你可以用 @成员名 给团队成员分配任务。\n\n协作群最近对话：\n${history}\n\n作为管理者，请：\n1. 分析当前需求\n2. 如有必要，@具体成员分配任务（如 \"@代码助手 请实现XX模块\"）\n3. 说明决策理由\n\n100-200字。`
+            : `你是「${agent.name}」，${agent.description || '团队成员'}。\n\n${teamMembersCtx}\n\n你可以用 @成员名 与其他成员协作。\n\n协作群对话：\n${history}\n\n报告工作进展，如需协助请 @其他成员。80-150字。`;
 
         const fullText = await streamCallAi(
           prompt,

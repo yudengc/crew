@@ -54,7 +54,16 @@ export default function AgentWorkspaceView() {
       const history = (ws?.messages ?? []).slice(-10)
         .map(m => `${m.role === 'user' ? '任务' : '思考'}: ${m.content}`).join('\n');
 
-      const prompt = `你是「${agent.name}」，${agent.description || 'AI 助手'}。\n\n这是你的私有思考空间。以下是历史记录：\n${history}\n\n当前任务：「${input}」\n\n请深入思考并执行。你可以使用工具（read_file, write_file, list_files, execute_command, web_search）。完成后给出详细的结果。`;
+      const team = teams.find(t => t.id === selected.teamId);
+      const teamMembers = team ? agents.filter(a => team.members.some(m => m.agentId === a.id)) : [];
+      const memberList = teamMembers.length > 0
+        ? teamMembers.map(tm => {
+            const tmData = team?.members.find(m => m.agentId === tm.id);
+            return `- ${tmData?.isManager ? '👑' : ''} ${tm.name}: ${tm.capabilities?.join(', ') || tm.description}`;
+          }).join('\n')
+        : '';
+
+      const prompt = `你是「${agent.name}」，${agent.description || 'AI 助手'}。\n\n${memberList ? `团队成员（可以用 @成员名 呼叫做）：\n${memberList}\n\n` : ''}这是你的私有思考空间。以下是历史记录：\n${history}\n\n当前任务：「${input}」\n\n请深入思考并执行。你可以使用工具（read_file, write_file, list_files, execute_command, web_search）。如需其他成员协助，在回复中 @他们。完成后给出详细的结果。`;
 
       const fullText = await streamCallAi(
         prompt,
