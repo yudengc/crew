@@ -102,6 +102,9 @@ namespace Crew.App.Services
                 if (onProgress != null)
                     await onProgress("thinking", $"第 {iteration} 轮思考中...");
 
+                Log.Debug("[AGENT_LOOP] {Agent} iteration {Iter}/{Max} with {MsgCount} messages",
+                    loopRequest.AgentName, iteration, maxIterations, messages.Count);
+
                 // Build the API request with conversation history
                 var aiRequest = new AiRequest
                 {

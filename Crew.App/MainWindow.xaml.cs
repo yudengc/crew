@@ -357,6 +357,12 @@ namespace Crew.App
 
                 var fullTask = $"你所在团队：{team?.Name ?? ""}\n{string.Join("\n", teamCtx)}\n\n---\n协作群最近对话：\n{context}\n\n---\n当前任务：\n{task}\n\n在私有工作区深入思考并执行。可以使用工具（read_file, write_file, list_files, execute_command, web_search）。完成思考后，给出对协作群最合适的回复（简洁、专业、有建设性）。";
 
+                // Log context for debugging
+                Log.Information("[AGENT_CTX] Session='{Session}' Agent='{Agent}' Task='{Task}' Context='{Ctx}'",
+                    sessionName ?? "(none)", agent.Name,
+                    task.Length > 80 ? task[..80] + "..." : task,
+                    context.Length > 200 ? context[..200] + "..." : context);
+
                 // Run Agent Loop
                 var loopReq = new AgentLoopRequest
                 {
@@ -394,6 +400,8 @@ namespace Crew.App
                 }));
 
                 // Final polish: make one quick call to produce a chat-friendly response
+                Log.Debug("[AGENT_POLISH] {Agent} raw={RawLen}chars, polishing for chat...",
+                    agent.Name, rawText.Length);
                 string finalText = rawText;
                 try
                 {
