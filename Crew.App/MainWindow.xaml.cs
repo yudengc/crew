@@ -282,7 +282,7 @@ namespace Crew.App
 window.ClaireBridge={_p:{},_n:0,_r:null,_e:null,_s:null,
 send:function(a,d){var i='r'+ ++this._n,p={action:a,data:d,id:i};
 if(d&&typeof d==='object'&&d.streamId){p.streamId=d.streamId;p.data=d.data;}
-window.chrome.webview.postMessage(JSON.stringify(p));
+window.chrome.webview.postMessage(p);
 return new Promise(function(ok,no){this._p[i]={o:ok,n:no};
 setTimeout(function(){if(this._p[i]){delete this._p[i];no(new Error('Timeout'));}},120000);}.bind(this));},
 set onResult(f){this._r=f;},get onResult(){return this._r;},
