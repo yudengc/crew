@@ -25,8 +25,8 @@ namespace Crew.App
             InitializeComponent();
 
             _appDataPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "CrewApp");
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".Crew");
 
             Directory.CreateDirectory(_appDataPath);
 
