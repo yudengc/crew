@@ -254,7 +254,7 @@ namespace Crew.App
                         "getListing" => _dataService.GetListingForAgent(payload.Data),
 "getWorkspaces" => _dataService.GetWorkspaces(),
 "getWorkspace" => GetWorkspaceHelper(payload.Data),
-			"getAllWorkspaceMessages" => _dataService.GetAllWorkspaceMessages(payload.Data, payload.Id),
+			"getAllWorkspaceMessages" => GetAllWorkspaceHelper(payload.Data),
 "saveWorkspaceMessage" => _dataService.SaveWorkspaceMessage(payload.Data),
 			"runAgentInWorkspace" => await RunAgentInWorkspaceAsync(payload.Data),
                         "executeTaskOrchestrated" => await _orchestrationService.ExecuteAsync(payload.Data, _dataService.GetAgents(), _dataService.GetSettings()),
@@ -298,6 +298,18 @@ namespace Crew.App
                 var teamId = root.GetProperty("teamId").GetString() ?? "";
                 var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
                 return _dataService.GetWorkspace(agentId, teamId, sessionId);
+            }
+            catch { return "{}"; }
+        }
+private string GetAllWorkspaceHelper(string? data)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(data ?? "{}");
+                var root = doc.RootElement;
+                var agentId = root.GetProperty("agentId").GetString() ?? "";
+                var teamId = root.GetProperty("teamId").GetString() ?? "";
+                return _dataService.GetAllWorkspaceMessages(agentId, teamId);
             }
             catch { return "{}"; }
         }
