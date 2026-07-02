@@ -36,7 +36,7 @@ interface AppState {
   addMemberToTeam: (teamId: string, agentId: string, role?: string) => Promise<boolean>;
   removeMemberFromTeam: (teamId: string, agentId: string) => Promise<boolean>;
   getChat: (teamId: string) => Promise<ChatMessage[]>;
-  sendChatMessage: (teamId: string, agentId: string, agentName: string, content: string, isUser: boolean, msgId?: string) => Promise<ChatMessage | null>;
+  sendChatMessage: (teamId: string, agentId: string, agentName: string, content: string, isUser: boolean, msgId?: string, avatar?: string) => Promise<ChatMessage | null>;
   publishAgent: (agentId: string, price: number) => Promise<boolean>;
   unpublishAgent: (agentId: string) => Promise<boolean>;
   getListing: (agentId: string) => Promise<ListingItem | null>;
@@ -294,16 +294,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     return [];
   },
 
-  sendChatMessage: async (teamId, agentId, agentName, content, isUser, msgId) => {
-    const msg = {
+  sendChatMessage: async (teamId, agentId, agentName, content, isUser, msgId, avatar) => {
+    const msg: Record<string, unknown> = {
       id: msgId || crypto.randomUUID(),
-      teamId,
-      agentId,
-      agentName,
-      content,
-      isUser,
+      teamId, agentId, agentName, content, isUser,
       timestamp: new Date().toISOString(),
     };
+    if (avatar) msg.avatar = avatar;
 
     const result = await bridgeSend('sendChatMessage', JSON.stringify(msg));
     return result as ChatMessage | null;

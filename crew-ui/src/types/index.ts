@@ -1,6 +1,7 @@
 export interface Agent {
   id: string;
   name: string;
+  avatar?: string;
   description: string;
   capabilities: string[];
   personality?: AgentPersonality;
@@ -9,6 +10,17 @@ export interface Agent {
   isCustom: boolean;
   isListed: boolean;
   createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  teamId: string;
+  agentId: string;
+  agentName: string;
+  avatar?: string;
+  content: string;
+  isUser: boolean;
+  timestamp: string;
 }
 
 export interface AgentPersonality {
@@ -76,16 +88,6 @@ export interface Settings {
   deepseekApiKey: string;
   defaultModel: string;
   hasCompletedOnboarding: boolean;
-}
-
-export interface ChatMessage {
-  id: string;
-  teamId: string;
-  agentId: string;
-  agentName: string;
-  content: string;
-  isUser: boolean;
-  timestamp: string;
 }
 
 export interface ListingItem {

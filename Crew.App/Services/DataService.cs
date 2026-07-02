@@ -360,6 +360,7 @@ namespace Crew.App.Services
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = "";
+        public string? Avatar { get; set; }
         public string Description { get; set; } = "";
         public string[] Capabilities { get; set; } = Array.Empty<string>();
         public AgentPersonality? Personality { get; set; }
@@ -445,6 +446,7 @@ namespace Crew.App.Services
         public string TeamId { get; set; } = "";
         public string AgentId { get; set; } = "";
         public string AgentName { get; set; } = "";
+        public string? Avatar { get; set; }
         public string Content { get; set; } = "";
         public bool IsUser { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
