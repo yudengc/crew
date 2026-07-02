@@ -31,7 +31,7 @@ function parseMentions(text: string, agents: Agent[]) {
 }
 
 export default function TeamChat() {
-  const { teams, agents, getChat, sendChatMessage, streamCallAi } = useAppStore();
+  const { teams, agents, tasks, getChat, sendChatMessage, streamCallAi, saveWorkspaceMessage } = useAppStore();
   const [teamId, setTeamId] = useState('');
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -123,6 +123,24 @@ export default function TeamChat() {
     const controller = new AbortController(); controllerRef.current = controller;
     const history = [...msgs, userMsg].slice(-8).map(m => `${m.agentName}: ${m.content}`).join('\n');
 
+    // Build team context for manager coordination
+    const buildTeamContext = () => {
+      const memberInfo = team.members.map(m => {
+        const a = agents.find(x => x.id === m.agentId);
+        if (!a) return null;
+        const memberTasks = tasks.filter(t => t.teamId === teamId && t.subTasks?.some(s => s.assignedAgentId === a.id));
+        const inProgress = memberTasks.filter(t => t.status === 'in_progress').length;
+        return `- ${m.isManager ? '👑' : ''} ${a.name}: ${a.capabilities?.join(', ') || a.description}${inProgress > 0 ? ` [进行中: ${inProgress}个任务]` : ''}`;
+      }).filter(Boolean).join('\n');
+      const activeTasks = tasks.filter(t => t.teamId === teamId && t.status === 'in_progress');
+      const taskSummary = activeTasks.length > 0
+        ? activeTasks.map(t => `- ${t.title} [${t.phase}]`).join('\n')
+        : '无进行中的任务';
+      return `团队成员：\n${memberInfo}\n\n进行中的任务：\n${taskSummary}`;
+    };
+
+    const teamContext = buildTeamContext();
+
     const promises = targets.map(async m => {
       const agent = agents.find(a => a.id === m.agentId);
       if (!agent) return null;
@@ -137,10 +155,10 @@ export default function TeamChat() {
       try {
         const isManager = m.isManager;
         const prompt = targetAgentIds.length > 0
-          ? `你是团队「${team.name}」的成员「${agent.name}」，${agent.description || '团队成员'}。\n\n团队成员在协作群中 @了你：\n${history}\n\n用户对你说：「${cleanText}」\n\n请在协作群中回复用户。80-150字，直接回复。`
+          ? `你是团队「${team.name}」的成员「${agent.name}」。\n\n${teamContext}\n\n团队协作群中 @了你。最近对话：\n${history}\n\n用户对你说：「${cleanText}」\n\n请回复。如果需要深度思考，去你的工作区执行。80-200字。`
           : isManager
-            ? `你是团队「${team.name}」的管理者「${agent.name}」，${agent.description || '团队管理者'}。\n\n协作群最近对话：\n${history}\n\n请协调回复。如果涉及具体任务，说明如何分工。80-150字，直接回复。`
-            : `你是「${agent.name}」，${agent.description || '团队成员'}。\n${history}\n\n报告你的工作进展。80-150字。`;
+            ? `你是团队「${team.name}」的管理者「${agent.name}」。\n\n${teamContext}\n\n协作群最近对话：\n${history}\n\n作为管理者，请：\n1. 分析当前需求\n2. 如有必要，@具体成员分配任务（如 \"@代码助手 请实现XX模块\"）\n3. 说明决策理由\n\n100-200字。`
+            : `你是「${agent.name}」，${agent.description || '团队成员'}。\n${history}\n\n报告工作进展。80-150字。`;
 
         const fullText = await streamCallAi(
           prompt,
@@ -173,7 +191,25 @@ export default function TeamChat() {
     });
 
     const results = await Promise.all(promises);
-    if (!controller.signal.aborted) setMsgs(prev => [...prev, ...results.filter(Boolean) as ChatMessage[]]);
+    if (!controller.signal.aborted) {
+      const valid = results.filter(Boolean) as ChatMessage[];
+      setMsgs(prev => [...prev, ...valid]);
+
+      // Auto-dispatch: manager's @mentions create workspace tasks
+      for (const msg of valid) {
+        const agent = agents.find(a => a.id === msg.agentId);
+        if (agent && team.members.find(m => m.agentId === agent.id && m.isManager)) {
+          const { targetAgentIds: dispatched, cleanText: instruction } = parseMentions(msg.content, agents);
+          for (const aid of dispatched) {
+            const target = agents.find(a => a.id === aid);
+            if (target && aid !== agent.id) {
+              const taskMsg = `[来自管理者 ${agent.name} 的任务]\n${instruction || msg.content}`;
+              await saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
+            }
+          }
+        }
+      }
+    }
     setBusy(false); controllerRef.current = null; sendLockRef.current = false;
     setTimeout(scrollDown, 100);
   };
