@@ -169,8 +169,6 @@ export default function TeamChat() {
       return `团队成员：\n${memberInfo}\n\n进行中的任务：\n${taskSummary}`;
     };
 
-    const teamContext = buildTeamContext();
-
     // Only manager gets AI response in chat; other agents route to workspace
     const promises = targets.map(async m => {
       const agent = agents.find(a => a.id === m.agentId);
