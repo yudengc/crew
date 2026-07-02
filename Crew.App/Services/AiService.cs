@@ -57,13 +57,7 @@ namespace Crew.App.Services
             Func<string, Task> onChunk,
             CancellationToken cancelToken)
         {
-            var allChunks = new List<string>();
-
-            await ChatStreamingAsync(request, settings, async chunk =>
-            {
-                allChunks.Add(chunk);
-                await onChunk(chunk);
-            }, cancelToken);
+            await ChatStreamingAsync(request, settings, onChunk, cancelToken);
         }
 
         /// <summary>Agent loop: ReAct pattern with tool calling.</summary>
@@ -129,6 +123,25 @@ namespace Crew.App.Services
 
                 // Parse response for tool calls
                 var (assistantText, toolCalls) = ParseResponse(rawResponse, settings.AiProvider);
+
+                // If response is empty and no tools, the API may have returned an error
+                if (string.IsNullOrEmpty(assistantText) && toolCalls.Count == 0)
+                {
+                    // Check if this was an API error by re-reading the raw response
+                    try
+                    {
+                        using var checkDoc = JsonDocument.Parse(rawResponse);
+                        var apiErr = DetectApiError(checkDoc.RootElement, settings.AiProvider);
+                        if (apiErr != null)
+                            return Error($"API 错误: {apiErr}");
+                    }
+                    catch { /* fall through to retry */ }
+
+                    // Not an API error — maybe empty response, retry if iterations remain
+                    if (iteration < maxIterations - 1) continue;
+                    finalResult = "未能获取有效回复";
+                    break;
+                }
 
                 if (toolCalls.Count > 0)
                 {
@@ -279,20 +292,29 @@ namespace Crew.App.Services
                 _ => throw new ArgumentException($"不支持的提供商: {provider}")
             };
 
-            await RetryWithBackoffAsync(async () =>
+            // Streaming: send HTTP request (retry once on transient connection error)
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = new StringContent(payload, Encoding.UTF8, "application/json")
-                };
-                foreach (var (key, value) in headers)
-                    httpRequest.Headers.Add(key, value);
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            foreach (var (key, value) in headers)
+                httpRequest.Headers.Add(key, value);
 
-                using var response = await _httpClient.SendAsync(
-                    httpRequest,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancelToken);
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(httpRequest,
+                    HttpCompletionOption.ResponseHeadersRead, cancelToken);
+            }
+            catch (HttpRequestException)
+            {
+                // One retry for transient network errors before streaming begins
+                response = await _httpClient.SendAsync(httpRequest,
+                    HttpCompletionOption.ResponseHeadersRead, cancelToken);
+            }
 
+            using (response)
+            {
                 response.EnsureSuccessStatusCode();
 
                 using var stream = await response.Content.ReadAsStreamAsync();
@@ -306,9 +328,7 @@ namespace Crew.App.Services
                 {
                     await ReadOpenAiSseAsync(reader, onChunk, cancelToken);
                 }
-
-                return "";
-            }, cancelToken, maxRetries: 2); // fewer retries for streaming
+            }
         }
 
         private async Task ReadClaudeSseAsync(StreamReader reader, Func<string, Task> onChunk, CancellationToken cancelToken)
@@ -518,7 +538,6 @@ namespace Crew.App.Services
         private static (string url, string payload, (string, string)[] headers) BuildClaudeStreamRequest(AiRequest request, string apiKey)
         {
             var (url, basePayload, headers) = BuildClaudeNonStreamRequest(request, apiKey);
-            var doc = JsonDocument.Parse(basePayload);
             var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(basePayload)!;
             dict["stream"] = true;
             return (url, JsonSerializer.Serialize(dict), headers);
@@ -718,14 +737,23 @@ namespace Crew.App.Services
             try
             {
                 using var doc = JsonDocument.Parse(rawResponse);
+                var root = doc.RootElement;
+
+                // Check for API-level error responses first
+                var apiError = DetectApiError(root, provider);
+                if (apiError != null)
+                {
+                    Log.Warning("{Provider} API error in response: {Error}", provider, apiError);
+                    return ("", new List<AgentToolCall>()); // Will trigger "empty result" handling upstream
+                }
 
                 if (provider == "claude")
                 {
-                    return ParseClaudeContent(doc.RootElement);
+                    return ParseClaudeContent(root);
                 }
                 else
                 {
-                    return ParseOpenAiContent(doc.RootElement);
+                    return ParseOpenAiContent(root);
                 }
             }
             catch (JsonException)
@@ -733,6 +761,33 @@ namespace Crew.App.Services
                 // Raw text response
                 return (rawResponse, new List<AgentToolCall>());
             }
+        }
+
+        /// <summary>Returns error message if the API response is an error, null otherwise.</summary>
+        private static string? DetectApiError(JsonElement root, string provider)
+        {
+            if (provider == "claude")
+            {
+                // Claude errors: {"type":"error","error":{"type":"...","message":"..."}}
+                if (root.TryGetProperty("type", out var t) && t.GetString() == "error"
+                    && root.TryGetProperty("error", out var err))
+                {
+                    return err.TryGetProperty("message", out var msg)
+                        ? msg.GetString()
+                        : err.GetRawText();
+                }
+            }
+            else
+            {
+                // OpenAI errors: {"error":{"message":"...","type":"..."}}
+                if (root.TryGetProperty("error", out var err))
+                {
+                    return err.TryGetProperty("message", out var msg)
+                        ? msg.GetString()
+                        : err.GetRawText();
+                }
+            }
+            return null;
         }
 
         private static (string text, List<AgentToolCall> toolCalls) ParseClaudeContent(JsonElement root)
