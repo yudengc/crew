@@ -412,15 +412,15 @@ namespace Crew.App
                     try
                     {
                         using var pd = JsonDocument.Parse(polishResult);
-                        var root = pd.RootElement;
+                        var prRoot = pd.RootElement;
                         // Parse actual AI response: {"choices":[{"message":{"content":"..."}}]}
-                        if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        if (prRoot.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                         {
                             var msg = choices[0].GetProperty("message");
                             if (msg.TryGetProperty("content", out var content))
                                 finalText = content.GetString() ?? rawText;
                         }
-                        else if (root.TryGetProperty("content", out var claudeContent) && claudeContent.GetArrayLength() > 0)
+                        else if (prRoot.TryGetProperty("content", out var claudeContent) && claudeContent.GetArrayLength() > 0)
                         {
                             // Claude format: {"content":[{"type":"text","text":"..."}]}
                             var block = claudeContent[0];
