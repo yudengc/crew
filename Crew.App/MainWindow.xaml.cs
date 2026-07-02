@@ -242,7 +242,7 @@ namespace Crew.App
                         "getSettings" => _dataService.GetSettings(),
                         "saveSettings" => _dataService.SaveSettings(payload.Data),
                         "callAi" => await _aiService.CallAsync("callAi", payload.Data, _dataService.GetSettings()),
-                        "getChat" => _dataService.GetChat(payload.Id),
+                        "getChat" => _dataService.GetChat(payload.Data),
                         "sendChatMessage" => _dataService.SaveChatMessage(payload.Data),
                         "publishAgent" => _dataService.PublishAgentToMarketplace(payload.Data),
                         "unpublishAgent" => _dataService.UnpublishAgent(payload.Id),
