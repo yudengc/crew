@@ -31,7 +31,7 @@ function parseMentions(text: string, agents: Agent[]) {
 }
 
 export default function TeamChat() {
-  const { teams, agents, tasks, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages, deleteSession, renameSession } = useAppStore();
+  const { teams, agents, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages, deleteSession, renameSession } = useAppStore();
   const [teamId, setTeamId] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
