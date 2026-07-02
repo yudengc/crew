@@ -98,7 +98,10 @@
       "Bash(sed -i 's/String\\(data.result\\).slice\\(0, 200\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\./String\\(data.result\\)/g' TeamChat.tsx)",
       "Bash(sed -i 's/fullText.slice\\(0, 200\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\.（详见工作区）/fullText/g' TeamChat.tsx)",
       "Bash(sed -i 's/fullText.slice\\(0, 150\\) + .\\\\\\\\.\\\\\\\\.\\\\\\\\./fullText/g' TeamChat.tsx)",
-      "Bash(sed -i \"s/\\\\$\\(String\\(data.result\\).length > 200 ? '\\\\\\\\\\\\\\\\n（详见工作区）' : ''\\)//g\" TeamChat.tsx)"
+      "Bash(sed -i \"s/\\\\$\\(String\\(data.result\\).length > 200 ? '\\\\\\\\\\\\\\\\n（详见工作区）' : ''\\)//g\" TeamChat.tsx)",
+      "Bash(sed -i '337d' TeamChat.tsx)",
+      "Bash(sed -i 's/const summary = String\\(data.result\\).length > 200/const summary = String\\(data.result\\)/' TeamChat.tsx)",
+      "Bash(sed -i '/? String\\(data.result\\) : String\\(data.result\\);/{ *)"
     ]
   }
 }

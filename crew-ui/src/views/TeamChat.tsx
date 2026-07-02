@@ -202,13 +202,10 @@ export default function TeamChat() {
                 const data = result as Record<string, unknown> | null;
                 if (data?.result) {
                   await saveWorkspaceMessage(agent.id, teamId, 'assistant', String(data.result)).catch(() => {});
-                  const summary = String(data.result).length > 200
-                    ? String(data.result) : String(data.result);
-                    : String(data.result);
                   const report: ChatMessage = {
                     id: crypto.randomUUID(), teamId, agentId: agent.id,
                     agentName: agent.name, avatar: agent.avatar,
-                    content: `📋 执行完成：\n${summary}${String(data.result).length > 200 ? String(data.result) : String(data.result);
+                    content: String(data.result),
                     isUser: false, timestamp: new Date().toISOString(),
                   };
                   await sendChatMessage(teamId, agent.id, agent.name, report.content, false, report.id, agent.avatar);
@@ -262,18 +259,13 @@ export default function TeamChat() {
             String(result.result), sessionId,
             sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
 
-          // Post brief summary to chat (not the full thinking)
-          const fullText = String(result.result);
-          const summary = m.isManager
-            ? (fullText.length > 200 ? fullText' : fullText)
-            : (fullText.length > 150 ? fullText' : fullText);
-
+          // Post full polished response to chat
           const am: ChatMessage = {
             id: crypto.randomUUID(), teamId, agentId: agent.id,
             agentName: agent.name, avatar: agent.avatar,
-            content: summary, isUser: false, timestamp: new Date().toISOString(),
+            content: String(result.result), isUser: false, timestamp: new Date().toISOString(),
           };
-          await sendChatMessage(teamId, agent.id, agent.name, summary, false, am.id, agent.avatar, sessionId);
+          await sendChatMessage(teamId, agent.id, agent.name, String(result.result), false, am.id, agent.avatar, sessionId);
           return am;
         }
         return null;
@@ -331,14 +323,11 @@ export default function TeamChat() {
             if (data?.result) {
               // Save thinking to workspace
               await saveWorkspaceMessage(aid, teamId, 'assistant', String(data.result), sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
-              // Post execution summary to team chat
-              const summary = String(data.result).length > 200
-                ? String(data.result) : String(data.result);
-                : String(data.result);
+              // Post full result to team chat
               const report: ChatMessage = {
                 id: crypto.randomUUID(), teamId, agentId: target.id,
                 agentName: target.name, avatar: target.avatar,
-                content: `📋 执行完成：\n${summary}`,
+                content: String(data.result),
                 isUser: false, timestamp: new Date().toISOString(),
               };
               await sendChatMessage(teamId, target.id, target.name, report.content, false, report.id, target.avatar);
