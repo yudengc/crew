@@ -153,22 +153,6 @@ export default function TeamChat() {
     const controller = new AbortController(); controllerRef.current = controller;
     const history = [...msgs, userMsg].slice(-8).map(m => `${m.agentName}: ${m.content}`).join('\n');
 
-    // Build team context for manager coordination
-    const buildTeamContext = () => {
-      const memberInfo = team.members.map(m => {
-        const a = agents.find(x => x.id === m.agentId);
-        if (!a) return null;
-        const memberTasks = tasks.filter(t => t.teamId === teamId && t.subTasks?.some(s => s.assignedAgentId === a.id));
-        const inProgress = memberTasks.filter(t => t.status === 'in_progress').length;
-        return `- ${m.isManager ? '👑' : ''} ${a.name}: ${a.capabilities?.join(', ') || a.description}${inProgress > 0 ? ` [进行中: ${inProgress}个任务]` : ''}`;
-      }).filter(Boolean).join('\n');
-      const activeTasks = tasks.filter(t => t.teamId === teamId && t.status === 'in_progress');
-      const taskSummary = activeTasks.length > 0
-        ? activeTasks.map(t => `- ${t.title} [${t.phase}]`).join('\n')
-        : '无进行中的任务';
-      return `团队成员：\n${memberInfo}\n\n进行中的任务：\n${taskSummary}`;
-    };
-
     // Only manager gets AI response in chat; other agents route to workspace
     const promises = targets.map(async m => {
       const agent = agents.find(a => a.id === m.agentId);
