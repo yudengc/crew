@@ -82,21 +82,21 @@ namespace Crew.App
 
         private int StartStaticFileServer(string rootFolder)
         {
-            _httpListener = new HttpListener();
-            // Try ports until one works
+            // Try ports until one works — new listener per attempt
             for (int port = 9876; port < 9900; port++)
             {
+                var listener = new HttpListener();
                 try
                 {
-                    _httpListener.Prefixes.Clear();
-                    _httpListener.Prefixes.Add($"http://localhost:{port}/");
-                    _httpListener.Start();
-                    Task.Run(() => ServeStaticFiles(_httpListener, rootFolder));
+                    listener.Prefixes.Add($"http://localhost:{port}/");
+                    listener.Start();
+                    _httpListener = listener;
+                    Task.Run(() => ServeStaticFiles(listener, rootFolder));
                     return port;
                 }
                 catch (HttpListenerException)
                 {
-                    // port in use, try next
+                    try { listener.Close(); } catch { }
                 }
             }
             throw new Exception("Could not find an available port for the UI server");

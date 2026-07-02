@@ -64,7 +64,15 @@
       "Bash(sed -i 's/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/g' MainWindow.xaml.cs)",
       "Bash(sed -i '/^\\\\t\\\\t\\\\t\\\\t\"getWorkspaces\"/{n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/;n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/}' MainWindow.xaml.cs)",
       "Bash(sed -i 's/await sendChatMessage\\(teamId, '\\\\''user'\\\\'', '\\\\''我'\\\\'', input, true, userMsg.id\\);/await sendChatMessage\\(teamId, '\\\\''user'\\\\'', '\\\\''我'\\\\'', input, true, userMsg.id, undefined, sessionId\\);/' TeamChat.tsx)",
-      "Bash(sed -i 's/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar\\);/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar, sessionId\\);/' TeamChat.tsx)"
+      "Bash(sed -i 's/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar\\);/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar, sessionId\\);/' TeamChat.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9876/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9877/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9878/index.html)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s -o /dev/null -w \"Vite: HTTP %{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9876/index.html)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9877/index.html)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:9878/index.html)"
     ]
   }
 }
