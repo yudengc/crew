@@ -441,15 +441,16 @@ namespace Crew.App.Services
 
         public string GetWorkspaces() => ReadFile("workspaces.json");
 
-        public string GetWorkspace(string? agentId, string? teamId)
+        public string GetWorkspace(string? agentId, string? teamId, string? sessionId = null)
         {
             if (string.IsNullOrEmpty(agentId)) return "null";
             var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
                 ReadFile("workspaces.json"), _jsonOptions) ?? new();
-            var ws = workspaces.FirstOrDefault(w => w.AgentId == agentId && w.TeamId == teamId);
+            var ws = workspaces.FirstOrDefault(w =>
+                w.AgentId == agentId && w.TeamId == teamId && w.SessionId == sessionId);
             if (ws == null)
             {
-                ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId ?? "", Name = "" };
+                ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId ?? "", SessionId = sessionId, Name = "" };
                 workspaces.Add(ws);
                 WriteFile("workspaces.json", JsonSerializer.Serialize(workspaces, _jsonOptions));
             }
@@ -468,9 +469,11 @@ namespace Crew.App.Services
                 var role = incoming.GetProperty("role").GetString() ?? "user";
                 var content = incoming.GetProperty("content").GetString() ?? "";
 
+                var sessionId = incoming.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
                 var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
                     ReadFile("workspaces.json"), _jsonOptions) ?? new();
-                var ws = workspaces.FirstOrDefault(w => w.AgentId == agentId && w.TeamId == teamId);
+                var ws = workspaces.FirstOrDefault(w =>
+                    w.AgentId == agentId && w.TeamId == teamId && w.SessionId == sessionId);
                 if (ws == null)
                 {
                     ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId, Name = "" };
@@ -481,7 +484,7 @@ namespace Crew.App.Services
                 {
                     Role = role,
                     Content = content,
-                    SessionId = incoming.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null,
+                    SessionId = sessionId,
                     SessionName = incoming.TryGetProperty("sessionName", out var sn) ? sn.GetString() : null,
                     Timestamp = DateTime.Now
                 });
@@ -609,6 +612,7 @@ namespace Crew.App.Services
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string TeamId { get; set; } = "";
         public string AgentId { get; set; } = "";
+        public string? SessionId { get; set; }
         public string Name { get; set; } = "";
         public List<WorkspaceMessage> Messages { get; set; } = new();
         public DateTime CreatedAt { get; set; } = DateTime.Now;

@@ -82,7 +82,10 @@
       "Bash(sed -i 's/await saveWorkspaceMessage\\(aid, teamId, '\\\\''assistant'\\\\'', String\\(data.result\\)\\)/await saveWorkspaceMessage\\(aid, teamId, '\\\\''assistant'\\\\'', String\\(data.result\\), sessionId, __TRACKED_VAR__\\)/' TeamChat.tsx)",
       "Bash(sed -i 's/agentId: agent.id, teamId, task: taskText, context: history/agentId: agent.id, teamId, task: taskText, context: history, sessionId, sessionName: sessions.find\\(s => s.id === sessionId\\)?.name || '\\\\'\\\\''/' TeamChat.tsx)",
       "Bash(sed -i 's/agentId: agent.id, teamId, task: taskText, context: history/&, sessionId, sessionName: sessions.find\\(s => s.id === sessionId\\)?.name || '\\\\'\\\\''/' TeamChat.tsx)",
-      "Bash(sed -i 's/, sessionId, sessionName:.*|| .'\"'\"'//' TeamChat.tsx)"
+      "Bash(sed -i 's/, sessionId, sessionName:.*|| .'\"'\"'//' TeamChat.tsx)",
+      "Bash(sed -i 's/getWorkspace: \\(agentId: string, teamId: string\\)/getWorkspace: \\(agentId: string, teamId: string, sessionId?: string\\)/' appStore.ts)",
+      "Bash(sed -i 's/getWorkspace: async \\(agentId, teamId\\)/getWorkspace: async \\(agentId, teamId, sessionId\\)/' appStore.ts)",
+      "Bash(sed -i 's/JSON.stringify\\({ agentId, teamId }\\)/JSON.stringify\\({ agentId, teamId, sessionId }\\)/' appStore.ts)"
     ]
   }
 }

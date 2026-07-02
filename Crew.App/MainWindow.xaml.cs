@@ -295,7 +295,8 @@ namespace Crew.App
                 var root = doc.RootElement;
                 var agentId = root.GetProperty("agentId").GetString() ?? "";
                 var teamId = root.GetProperty("teamId").GetString() ?? "";
-                return _dataService.GetWorkspace(agentId, teamId);
+                var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                return _dataService.GetWorkspace(agentId, teamId, sessionId);
             }
             catch { return _dataService.GetWorkspace(data, ""); }
         }

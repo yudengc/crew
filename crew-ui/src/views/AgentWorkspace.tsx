@@ -15,6 +15,7 @@ function agentColor(name: string) {
 export default function AgentWorkspaceView() {
   const { teams, agents, getWorkspace, saveWorkspaceMessage, streamCallAi } = useAppStore();
   const [selected, setSelected] = useState<{ agentId: string; teamId: string; agentName: string } | null>(null);
+  const [wsSessionId, setWsSessionId] = useState('__all__');
   const [ws, setWs] = useState<WS | null>(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -22,15 +23,16 @@ export default function AgentWorkspaceView() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const loadWorkspace = async (agentId: string, teamId: string) => {
-    const data = await getWorkspace(agentId, teamId);
+  const loadWorkspace = async (agentId: string, teamId: string, sessionId?: string) => {
+    const data = await getWorkspace(agentId, teamId, sessionId);
     setWs(data);
   };
 
   const openAgent = (agentId: string, teamId: string, agentName: string) => {
     setSelected({ agentId, teamId, agentName });
+    setWsSessionId('__all__');
     setStreaming('');
-    loadWorkspace(agentId, teamId);
+    loadWorkspace(agentId, teamId, undefined);
   };
 
   useEffect(() => { bottomRef.current?.scrollIntoView(); }, [ws?.messages, streaming]);
@@ -140,8 +142,15 @@ export default function AgentWorkspaceView() {
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${agentColor(selected.agentName)}`}>
               {selected.agentName.charAt(0)}
             </span>
-            <span className="font-semibold text-gray-900 text-sm">{selected.agentName} 的思考空间</span>
-            <span className="text-xs text-gray-400 ml-auto">私有 · 不可见于协作群</span>
+            <span className="font-semibold text-gray-900 text-sm">{selected.agentName}</span>
+            <select value={wsSessionId} onChange={e => { const v=e.target.value; setWsSessionId(v); loadWorkspace(selected.agentId, selected.teamId, v==='__all__'?undefined:v); }}
+              className="ml-2 px-2 py-0.5 border border-gray-200 rounded-lg text-xs text-gray-500 outline-none bg-white">
+              <option value="__all__">所有会话</option>
+              {[...new Set(ws?.messages.filter(m=>m.sessionId).map(m=>m.sessionId+'|'+(m.sessionName||'')))].map(s=>{
+                const [sid,sn]=s.split('|'); return <option key={sid} value={sid}>{sn||sid?.slice(0,8)}</option>;
+              })}
+            </select>
+            <span className="text-xs text-gray-400 ml-auto">私有</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">

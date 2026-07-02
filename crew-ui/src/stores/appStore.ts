@@ -31,7 +31,7 @@ interface AppState {
   callAi: (prompt: string, config?: Partial<Agent['config']>) => Promise<string>;
   streamCallAi: (prompt: string, onChunk: (text: string) => void, config?: Partial<Agent['config']>) => Promise<string>;
   cancelTask: (taskId: string) => Promise<boolean>;
-  getWorkspace: (agentId: string, teamId: string) => Promise<AgentWorkspace | null>;
+  getWorkspace: (agentId: string, teamId: string, sessionId?: string) => Promise<AgentWorkspace | null>;
   saveWorkspaceMessage: (agentId: string, teamId: string, role: string, content: string, sessionId?: string, sessionName?: string) => Promise<void>;
 
   // 新功能
@@ -137,8 +137,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 getSessions: async (teamId) => { const data = await bridgeSend('getSessions', teamId); return (data as ChatSession[]) || []; },
 deleteSession: async (sessionId) => { const data = await bridgeSend('deleteSession', sessionId); return data === true || data === 'true'; },  renameSession: async (sessionId, name) => { const data = await bridgeSend('renameSession', JSON.stringify({ id: sessionId, name })); return data as ChatSession | null; },
   createSession: async (teamId, name) => { const data = await bridgeSend('createSession', JSON.stringify({ teamId, name })); return data as ChatSession | null; },  getSessionMessages: async (sessionId) => { const data = await bridgeSend('getSession', sessionId); if (data && typeof data === 'object') { const s = data as ChatSession; return s.messages || []; } return []; },
-  getWorkspace: async (agentId, teamId) => {
-    const data = await bridgeSend('getWorkspace', JSON.stringify({ agentId, teamId }));
+  getWorkspace: async (agentId, teamId, sessionId) => {
+    const data = await bridgeSend('getWorkspace', JSON.stringify({ agentId, teamId, sessionId }));
     if (data) return data as AgentWorkspace;
     return null;
   },
