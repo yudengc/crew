@@ -271,16 +271,21 @@ namespace Crew.App.Services
         public string GetSessions(string? teamId)
         {
             if (string.IsNullOrEmpty(teamId)) return "[]";
-            var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
-            var sessions = chats.Where(c => c.TeamId == teamId).ToList();
-            if (sessions.Count == 0)
+            _writeLock.Wait();
+            try
             {
-                var defaultSession = new ChatSession { TeamId = teamId, Name = "默认会话" };
-                chats.Add(defaultSession);
-                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
-                sessions.Add(defaultSession);
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                var sessions = chats.Where(c => c.TeamId == teamId).ToList();
+                if (sessions.Count == 0)
+                {
+                    var defaultSession = new ChatSession { TeamId = teamId, Name = "默认会话" };
+                    chats.Add(defaultSession);
+                    WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                    sessions.Add(defaultSession);
+                }
+                return JsonSerializer.Serialize(sessions, _jsonOptions);
             }
-            return JsonSerializer.Serialize(sessions, _jsonOptions);
+            finally { _writeLock.Release(); }
         }
 
         public string CreateSession(string? data)
@@ -444,17 +449,22 @@ namespace Crew.App.Services
         public string GetWorkspace(string? agentId, string? teamId, string? sessionId = null)
         {
             if (string.IsNullOrEmpty(agentId)) return "null";
-            var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
-                ReadFile("workspaces.json"), _jsonOptions) ?? new();
-            var ws = workspaces.FirstOrDefault(w =>
-                w.AgentId == agentId && w.TeamId == teamId && w.SessionId == sessionId);
-            if (ws == null)
+            _writeLock.Wait();
+            try
             {
-                ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId ?? "", SessionId = sessionId, Name = "" };
-                workspaces.Add(ws);
-                WriteFile("workspaces.json", JsonSerializer.Serialize(workspaces, _jsonOptions));
+                var workspaces = JsonSerializer.Deserialize<List<AgentWorkspace>>(
+                    ReadFile("workspaces.json"), _jsonOptions) ?? new();
+                var ws = workspaces.FirstOrDefault(w =>
+                    w.AgentId == agentId && w.TeamId == teamId && w.SessionId == sessionId);
+                if (ws == null)
+                {
+                    ws = new AgentWorkspace { AgentId = agentId, TeamId = teamId ?? "", SessionId = sessionId, Name = "" };
+                    workspaces.Add(ws);
+                    WriteFile("workspaces.json", JsonSerializer.Serialize(workspaces, _jsonOptions));
+                }
+                return JsonSerializer.Serialize(ws, _jsonOptions);
             }
-            return JsonSerializer.Serialize(ws, _jsonOptions);
+            finally { _writeLock.Release(); }
         }
 
         public string SaveWorkspaceMessage(string? data)

@@ -412,8 +412,21 @@ namespace Crew.App
                     try
                     {
                         using var pd = JsonDocument.Parse(polishResult);
-                        if (pd.RootElement.TryGetProperty("result", out var pr))
-                            finalText = pr.GetString() ?? rawText;
+                        var root = pd.RootElement;
+                        // Parse actual AI response: {"choices":[{"message":{"content":"..."}}]}
+                        if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        {
+                            var msg = choices[0].GetProperty("message");
+                            if (msg.TryGetProperty("content", out var content))
+                                finalText = content.GetString() ?? rawText;
+                        }
+                        else if (root.TryGetProperty("content", out var claudeContent) && claudeContent.GetArrayLength() > 0)
+                        {
+                            // Claude format: {"content":[{"type":"text","text":"..."}]}
+                            var block = claudeContent[0];
+                            if (block.TryGetProperty("text", out var text))
+                                finalText = text.GetString() ?? rawText;
+                        }
                     }
                     catch { finalText = rawText; }
                 }

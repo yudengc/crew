@@ -85,7 +85,11 @@
       "Bash(sed -i 's/, sessionId, sessionName:.*|| .'\"'\"'//' TeamChat.tsx)",
       "Bash(sed -i 's/getWorkspace: \\(agentId: string, teamId: string\\)/getWorkspace: \\(agentId: string, teamId: string, sessionId?: string\\)/' appStore.ts)",
       "Bash(sed -i 's/getWorkspace: async \\(agentId, teamId\\)/getWorkspace: async \\(agentId, teamId, sessionId\\)/' appStore.ts)",
-      "Bash(sed -i 's/JSON.stringify\\({ agentId, teamId }\\)/JSON.stringify\\({ agentId, teamId, sessionId }\\)/' appStore.ts)"
+      "Bash(sed -i 's/JSON.stringify\\({ agentId, teamId }\\)/JSON.stringify\\({ agentId, teamId, sessionId }\\)/' appStore.ts)",
+      "Bash(sed -i 's/if \\(!input.trim\\(\\) || !teamId || !team || sendLockRef.current\\) return;/if \\(!input.trim\\(\\) || !teamId || !team || sendLockRef.current || busy\\) return;/' TeamChat.tsx)",
+      "Bash(sed -i '/if \\(busy\\) { sendLockRef.current = false; return; }/d' TeamChat.tsx)",
+      "Bash(sed -i 's/} catch \\(err\\) {$/} catch \\(err\\) { if \\(controller.signal.aborted\\) return null; toast.error\\(`代理回复失败`\\);/' TeamChat.tsx)",
+      "Bash(sed -i 's/if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/if \\(controller.signal.aborted\\) return null;\\\\n        return null;\\\\n      } catch \\(err\\) {\\\\n        if \\(controller.signal.aborted\\) return null;\\\\n        toast.error/' TeamChat.tsx)"
     ]
   }
 }

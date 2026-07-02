@@ -127,7 +127,7 @@ export default function TeamChat() {
   };
 
   const send = async () => {
-    if (!input.trim() || !teamId || !team || sendLockRef.current) return;
+    if (!input.trim() || !teamId || !team || sendLockRef.current || busy) return;
     sendLockRef.current = true;
     const { targetAgentIds, cleanText } = parseMentions(input.trim(), agents);
     let targets = team.members.filter(m => {
@@ -147,7 +147,6 @@ export default function TeamChat() {
     };
     await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id, undefined, sessionId);
     setMsgs(prev => [...prev, userMsg]); setInput('');
-    if (busy) { sendLockRef.current = false; return; }
 
     setBusy(true);
     const controller = new AbortController(); controllerRef.current = controller;
@@ -220,7 +219,7 @@ export default function TeamChat() {
             return am;
           }
           return null;
-        } catch (err) {
+        } catch (err) { if (controller.signal.aborted) return null; toast.error(`代理回复失败`);
           if (controller.signal.aborted) return null;
           return null;
         } finally {
@@ -278,7 +277,7 @@ export default function TeamChat() {
           return am;
         }
         return null;
-      } catch (err) {
+      } catch (err) { if (controller.signal.aborted) return null; toast.error(`代理回复失败`);
         if (controller.signal.aborted) return null;
         return null;
       } finally {

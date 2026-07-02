@@ -944,12 +944,23 @@ namespace Crew.App.Services
         private static List<(string Id, string Result)> ParseToolResults(string content)
         {
             var results = new List<(string, string)>();
-            // Parse "[工具结果 id=toolu_xxx] toolName(args):\nresultText" format
-            var idMatch = System.Text.RegularExpressions.Regex.Match(content, @"\[工具结果 id=([^\]]+)\]");
-            var toolUseId = idMatch.Success ? idMatch.Groups[1].Value : Guid.NewGuid().ToString();
-            // Strip the metadata prefix for clean result content
-            var cleanResult = System.Text.RegularExpressions.Regex.Replace(content, @"\[工具结果 id=[^\]]*\]\s*", "");
-            results.Add((toolUseId, cleanResult));
+            // Parse all "[工具结果 id=xxx] ..." blocks
+            var matches = System.Text.RegularExpressions.Regex.Matches(content, @"\[工具结果 id=([^\]]+)\]\s*");
+            if (matches.Count == 0)
+            {
+                results.Add((Guid.NewGuid().ToString(), content));
+                return results;
+            }
+
+            for (int i = 0; i < matches.Count; i++)
+            {
+                var m = matches[i];
+                var toolUseId = m.Groups[1].Value;
+                var startIdx = m.Index + m.Length;
+                var endIdx = (i + 1 < matches.Count) ? matches[i + 1].Index : content.Length;
+                var resultText = content[startIdx..endIdx].Trim();
+                results.Add((toolUseId, resultText));
+            }
             return results;
         }
 

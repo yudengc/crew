@@ -13,7 +13,7 @@ function agentColor(name: string) {
 }
 
 export default function AgentWorkspaceView() {
-  const { teams, agents, getWorkspace, saveWorkspaceMessage, streamCallAi } = useAppStore();
+  const { teams, agents, getWorkspace, saveWorkspaceMessage } = useAppStore();
   const [selected, setSelected] = useState<{ agentId: string; teamId: string; agentName: string } | null>(null);
   const [wsSessionId, setWsSessionId] = useState('__all__');
   const [ws, setWs] = useState<WS | null>(null);
@@ -40,47 +40,37 @@ export default function AgentWorkspaceView() {
   const send = async () => {
     if (!input.trim() || !selected || busy) return;
     const { agentId, teamId } = selected;
-    await saveWorkspaceMessage(agentId, teamId, 'user', input);
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    saveWorkspaceMessage(agentId, teamId, 'user', input).catch(() => {});
     setWs(prev => prev ? { ...prev, messages: [...prev.messages, { role: 'user', content: input, timestamp: new Date().toISOString() }] } : prev);
     setInput('');
     setBusy(true);
-    setStreaming('');
-
-    const agent = agents.find(a => a.id === agentId);
-    if (!agent) { setBusy(false); return; }
-
-    const controller = new AbortController();
-    controllerRef.current = controller;
+    setStreaming('思考中...');
 
     try {
       const history = (ws?.messages ?? []).slice(-10)
         .map(m => `${m.role === 'user' ? '任务' : '思考'}: ${m.content}`).join('\n');
 
-      const team = teams.find(t => t.id === selected.teamId);
-      const teamMembers = team ? agents.filter(a => team.members.some(m => m.agentId === a.id)) : [];
-      const memberList = teamMembers.length > 0
-        ? teamMembers.map(tm => {
-            const tmData = team?.members.find(m => m.agentId === tm.id);
-            return `- ${tmData?.isManager ? '👑' : ''} ${tm.name}: ${tm.capabilities?.join(', ') || tm.description}`;
-          }).join('\n')
-        : '';
+      // Use real Agent Loop (runAgentInWorkspace) — same as TeamChat dispatch
+      const { bridgeSend } = await import('../utils/bridge');
+      const result = await bridgeSend('runAgentInWorkspace', JSON.stringify({
+        agentId, teamId, task: input, context: history,
+        sessionId: undefined, sessionName: '工作区手动任务'
+      })) as Record<string, unknown> | null;
 
-      const prompt = `你是「${agent.name}」，${agent.description || 'AI 助手'}。\n\n${memberList ? `团队成员（可以用 @成员名 呼叫做）：\n${memberList}\n\n` : ''}这是你的私有思考空间。以下是历史记录：\n${history}\n\n当前任务：「${input}」\n\n请深入思考并执行。你可以使用工具（read_file, write_file, list_files, execute_command, web_search）。如需其他成员协助，在回复中 @他们。完成后给出详细的结果。`;
-
-      const fullText = await streamCallAi(
-        prompt,
-        (chunk) => { if (!controller.signal.aborted) setStreaming(prev => prev + chunk); },
-        agent.config,
-      );
-
-      if (!controller.signal.aborted && fullText.trim()) {
+      if (result?.result) {
+        const fullText = String(result.result);
         await saveWorkspaceMessage(agentId, teamId, 'assistant', fullText);
         setWs(prev => prev ? { ...prev, messages: [...prev.messages, { role: 'assistant', content: fullText, timestamp: new Date().toISOString() }] } : prev);
         setStreaming('');
         toast.success(`${agent.name} 思考完成`);
+      } else if (result?.error) {
+        toast.error(`思考失败: ${result.error}`);
       }
     } catch (err) {
-      if (!controller.signal.aborted) toast.error('思考中断');
+      toast.error(`思考中断: ${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setBusy(false);
       controllerRef.current = null;
