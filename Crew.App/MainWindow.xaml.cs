@@ -246,6 +246,8 @@ namespace Crew.App
 			"getSessions" => _dataService.GetSessions(payload.Data),
 			"getSession" => _dataService.GetSession(payload.Data),
 			"createSession" => _dataService.CreateSession(payload.Data),
+			"deleteSession" => _dataService.DeleteSession(payload.Data),
+			"renameSession" => _dataService.RenameSession(payload.Data),
                         "sendChatMessage" => _dataService.SaveChatMessage(payload.Data),
                         "publishAgent" => _dataService.PublishAgentToMarketplace(payload.Data),
                         "unpublishAgent" => _dataService.UnpublishAgent(payload.Id),

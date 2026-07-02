@@ -313,6 +313,44 @@ namespace Crew.App.Services
             return JsonSerializer.Serialize(chat ?? new ChatSession { TeamId = teamId, Messages = new() }, _jsonOptions);
         }
 
+        public string DeleteSession(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "false";
+            _writeLock.Wait();
+            try
+            {
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                chats.RemoveAll(c => c.Id == data);
+                // Don't delete the last session for a team
+                WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                return "true";
+            }
+            finally { _writeLock.Release(); }
+        }
+
+        public string RenameSession(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "null";
+            _writeLock.Wait();
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                var id = root.GetProperty("id").GetString() ?? "";
+                var name = root.GetProperty("name").GetString() ?? "";
+
+                var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
+                var session = chats.FirstOrDefault(c => c.Id == id);
+                if (session != null)
+                {
+                    session.Name = name;
+                    WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                }
+                return JsonSerializer.Serialize(session, _jsonOptions);
+            }
+            finally { _writeLock.Release(); }
+        }
+
         public string GetSession(string? sessionId)
         {
             if (string.IsNullOrEmpty(sessionId)) return "null";

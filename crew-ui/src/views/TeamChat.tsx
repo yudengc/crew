@@ -31,7 +31,7 @@ function parseMentions(text: string, agents: Agent[]) {
 }
 
 export default function TeamChat() {
-  const { teams, agents, tasks, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages } = useAppStore();
+  const { teams, agents, tasks, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages, deleteSession, renameSession } = useAppStore();
   const [teamId, setTeamId] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -40,6 +40,8 @@ export default function TeamChat() {
   const [busy, setBusy] = useState(false);
   const [thinking, setThinking] = useState<string[]>([]);
   const [streaming, setStreaming] = useState<StreamingMsg[]>([]);
+  const [editingSession, setEditingSession] = useState('');
+  const [editName, setEditName] = useState('');
   const [mentionSuggest, setMentionSuggest] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   const sendLockRef = useRef(false);
@@ -398,12 +400,38 @@ export default function TeamChat() {
                 {active && (
                   <div className="ml-3 mt-0.5 space-y-0.5">
                     {sessions.map(s => (
-                      <button key={s.id} onClick={() => setSessionId(s.id)}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-all ${
-                          s.id === sessionId ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-100'
-                        }`}>
-                        # {s.name}
-                      </button>
+                      <div key={s.id} className={`flex items-center group rounded-lg text-xs ${
+                        s.id === sessionId ? 'bg-blue-100' : 'hover:bg-gray-100'
+                      }`}>
+                        {editingSession === s.id ? (
+                          <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') { await renameSession(s.id, editName); setSessions(prev => prev.map(x => x.id === s.id ? { ...x, name: editName } : x)); setEditingSession(''); }
+                              if (e.key === 'Escape') setEditingSession('');
+                            }}
+                            onBlur={() => setEditingSession('')}
+                            className="flex-1 px-2 py-1.5 bg-white border border-blue-300 rounded outline-none text-xs"
+                            onClick={e => e.stopPropagation()} />
+                        ) : (
+                          <button onClick={() => setSessionId(s.id)}
+                            className={`flex-1 text-left px-3 py-1.5 ${s.id === sessionId ? 'text-blue-700 font-medium' : 'text-gray-500'}`}>
+                            # {s.name}
+                          </button>
+                        )}
+                        {s.id === sessionId && (
+                          <div className="hidden group-hover:flex items-center mr-1">
+                            <button onClick={() => { setEditingSession(s.id); setEditName(s.name); }}
+                              className="p-1 text-gray-300 hover:text-blue-500" title="重命名">✎</button>
+                            <button onClick={async () => {
+                              if (confirm('删除此会话？')) {
+                                await deleteSession(s.id);
+                                setSessions(prev => prev.filter(x => x.id !== s.id));
+                                if (sessionId === s.id) { const remaining = sessions.filter(x => x.id !== s.id); setSessionId(remaining[0]?.id || ''); }
+                              }
+                            }} className="p-1 text-gray-300 hover:text-red-500" title="删除">×</button>
+                          </div>
+                        )}
+                      </div>
                     ))}
                     <button onClick={newSession}
                       className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all">
