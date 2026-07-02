@@ -80,12 +80,11 @@ namespace Crew.App.Services
             string path = Path.Combine(_dataPath, filename);
             try
             {
-                return File.ReadAllText(path);
+                return File.ReadAllText(path, System.Text.Encoding.UTF8);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Log.Error(ex, "Failed to read {File}", filename);
-                // Return valid empty array/object so callers don't crash
                 if (filename.EndsWith(".json"))
                     return filename.Contains("settings") ? GetDefaultSettings() : "[]";
                 throw;
@@ -98,8 +97,8 @@ namespace Crew.App.Services
             string tempPath = path + ".tmp";
             string backupPath = path + ".bak";
 
-            // Atomic write: temp file → replace (preserves old as .bak)
-            File.WriteAllText(tempPath, content);
+            // Atomic write with explicit UTF-8 encoding
+            File.WriteAllText(tempPath, content, System.Text.Encoding.UTF8);
             if (File.Exists(path))
                 File.Replace(tempPath, path, backupPath);
             else
