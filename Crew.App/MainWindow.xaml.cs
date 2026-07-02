@@ -299,7 +299,7 @@ namespace Crew.App
                 var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
                 return _dataService.GetWorkspace(agentId, teamId, sessionId);
             }
-            catch { return _dataService.GetWorkspace(data, ""); }
+            catch { return "{}"; }
         }
 
         // ── Agent workspace execution ─────────────────────────
@@ -368,7 +368,7 @@ namespace Crew.App
                     ModelId = agent.Config.ModelId ?? settings.DefaultModel,
                     Temperature = agent.Config.Temperature,
                     MaxTokens = agent.Config.MaxTokens,
-                    MaxIterations = 10
+                    MaxIterations = 15
                 };
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));

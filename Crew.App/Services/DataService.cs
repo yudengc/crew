@@ -197,6 +197,9 @@ namespace Crew.App.Services
                 var chats = JsonSerializer.Deserialize<List<ChatSession>>(ReadFile("chats.json"), _jsonOptions) ?? new();
                 chats.RemoveAll(c => c.TeamId == id);
                 WriteFile("chats.json", JsonSerializer.Serialize(chats, _jsonOptions));
+                var wss = JsonSerializer.Deserialize<List<AgentWorkspace>>(ReadFile("workspaces.json"), _jsonOptions) ?? new();
+                wss.RemoveAll(w => w.TeamId == id);
+                WriteFile("workspaces.json", JsonSerializer.Serialize(wss, _jsonOptions));
 
                 return "true";
             }
