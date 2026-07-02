@@ -53,7 +53,8 @@
       "Bash(ssh-keygen -R github.com)",
       "Read(//c/Users/yudengc/.ssh/**)",
       "Bash(ssh -T git@github.com)",
-      "Bash(ssh-keyscan -t ed25519 github.com)"
+      "Bash(ssh-keyscan -t ed25519 github.com)",
+      "Bash(curl -s https://api.deepseek.com/v1/chat/completions -H 'Content-Type: application/json' -H 'Authorization: Bearer YOUR_DEEPSEEK_API_KEY' -d '{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one sentence.\"}],\"max_tokens\":50}')"
     ]
   }
 }
