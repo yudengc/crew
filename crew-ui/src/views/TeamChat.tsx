@@ -209,7 +209,8 @@ export default function TeamChat() {
           if (!target || aid === agent.id) continue;
 
           // Create workspace task
-          const taskMsg = `[${agent.isManager ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
+          const isManager = team.members.find(m => m.agentId === agent.id)?.isManager;
+          const taskMsg = `[${isManager ? '管理者' : ''} ${agent.name} @了你]\n${instruction || msg.content}`;
           saveWorkspaceMessage(aid, teamId, 'user', taskMsg).catch(() => {});
 
           // Also have the agent respond directly in the chat
