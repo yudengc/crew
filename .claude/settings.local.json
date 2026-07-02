@@ -62,7 +62,9 @@
       "Bash(sed -i 's/import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem } from/import type { Agent, Team, TaskItem, MarketplaceAgent, Settings, ChatMessage, ListingItem, AgentWorkspace } from/' appStore.ts)",
       "Bash(sed -i 's/\\\\\\\\t//g' MainWindow.xaml.cs)",
       "Bash(sed -i 's/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/g' MainWindow.xaml.cs)",
-      "Bash(sed -i '/^\\\\t\\\\t\\\\t\\\\t\"getWorkspaces\"/{n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/;n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/}' MainWindow.xaml.cs)"
+      "Bash(sed -i '/^\\\\t\\\\t\\\\t\\\\t\"getWorkspaces\"/{n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/;n;s/^t\\\\t\\\\t\\\\t\"/\\\\t\\\\t\\\\t\\\\t\"/}' MainWindow.xaml.cs)",
+      "Bash(sed -i 's/await sendChatMessage\\(teamId, '\\\\''user'\\\\'', '\\\\''我'\\\\'', input, true, userMsg.id\\);/await sendChatMessage\\(teamId, '\\\\''user'\\\\'', '\\\\''我'\\\\'', input, true, userMsg.id, undefined, sessionId\\);/' TeamChat.tsx)",
+      "Bash(sed -i 's/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar\\);/await sendChatMessage\\(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar, sessionId\\);/' TeamChat.tsx)"
     ]
   }
 }

@@ -41,7 +41,7 @@ interface AppState {
   getSessions: (teamId: string) => Promise<ChatSession[]>;
   createSession: (teamId: string, name: string) => Promise<ChatSession | null>;
   getSessionMessages: (sessionId: string) => Promise<ChatMessage[]>;
-  sendChatMessage: (teamId: string, agentId: string, agentName: string, content: string, isUser: boolean, msgId?: string, avatar?: string) => Promise<ChatMessage | null>;
+  sendChatMessage: (teamId: string, agentId: string, agentName: string, content: string, isUser: boolean, msgId?: string, avatar?: string, sessionId?: string) => Promise<ChatMessage | null>;
   publishAgent: (agentId: string, price: number) => Promise<boolean>;
   unpublishAgent: (agentId: string) => Promise<boolean>;
   getListing: (agentId: string) => Promise<ListingItem | null>;
@@ -310,13 +310,14 @@ getSessions: async (teamId) => { const data = await bridgeSend('getSessions', te
     return [];
   },
 
-  sendChatMessage: async (teamId, agentId, agentName, content, isUser, msgId, avatar) => {
+  sendChatMessage: async (teamId, agentId, agentName, content, isUser, msgId, avatar, sessionId) => {
     const msg: Record<string, unknown> = {
       id: msgId || crypto.randomUUID(),
       teamId, agentId, agentName, content, isUser,
       timestamp: new Date().toISOString(),
     };
     if (avatar) msg.avatar = avatar;
+    if (sessionId) msg.sessionId = sessionId;
 
     const result = await bridgeSend('sendChatMessage', JSON.stringify(msg));
     return result as ChatMessage | null;

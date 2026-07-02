@@ -31,7 +31,7 @@ function parseMentions(text: string, agents: Agent[]) {
 }
 
 export default function TeamChat() {
-  const { teams, agents, tasks, getChat, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages } = useAppStore();
+  const { teams, agents, tasks, sendChatMessage, streamCallAi, saveWorkspaceMessage, getSessions, createSession, getSessionMessages } = useAppStore();
   const [teamId, setTeamId] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -143,7 +143,7 @@ export default function TeamChat() {
       id: crypto.randomUUID(), teamId, sessionId, agentId: 'user',
       agentName: '我', content: input, isUser: true, timestamp: new Date().toISOString(),
     };
-    await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id);
+    await sendChatMessage(teamId, 'user', '我', input, true, userMsg.id, undefined, sessionId);
     setMsgs(prev => [...prev, userMsg]); setInput('');
     if (busy) { sendLockRef.current = false; return; }
 
@@ -321,7 +321,7 @@ export default function TeamChat() {
             content: `收到，我来处理。`,
             isUser: false, timestamp: new Date().toISOString(),
           };
-          await sendChatMessage(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar);
+          await sendChatMessage(teamId, target.id, target.name, ackMsg.content, false, ackMsg.id, target.avatar, sessionId);
           setMsgs(prev => [...prev, ackMsg]);
           setThinking(prev => prev.filter(n => n !== target.name));
 
@@ -439,7 +439,7 @@ export default function TeamChat() {
             )}
             <div className="ml-auto flex items-center gap-1">
               {busy && <button onClick={cancel} className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium">停止</button>}
-              <button onClick={load} className="text-xs text-gray-400 hover:text-gray-600">刷新</button>
+              <button onClick={loadSession} className="text-xs text-gray-400 hover:text-gray-600">刷新</button>
             </div>
           </div>
 
