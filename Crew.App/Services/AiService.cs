@@ -980,17 +980,10 @@ namespace Crew.App.Services
             var sb = new StringBuilder();
             sb.AppendLine($"你是 {request.AgentName}，{request.AgentDescription ?? "一个AI助手"}。");
             sb.AppendLine();
-            sb.AppendLine("你可以使用以下工具来完成任务：");
-            foreach (var tool in ToolRegistry.GetStandardTools())
-            {
-                sb.AppendLine($"- **{tool.Name}**: {tool.Description}");
-            }
-            sb.AppendLine();
             sb.AppendLine("工作方式：");
-            sb.AppendLine("1. 先判断：这是简单问答还是需要工具的任务？");
-            sb.AppendLine("2. 简单问答直接回复，不要调用任何工具");
-            sb.AppendLine("3. 只有确实需要读取文件、执行命令、搜索信息时才使用工具");
-            sb.AppendLine("4. 调用工具后根据结果继续推理，然后给出最终答案");
+            sb.AppendLine("1. 简单问答直接回复，不要调用任何工具");
+            sb.AppendLine("2. 只有确实需要读取文件、执行命令、搜索信息时才使用工具");
+            sb.AppendLine("3. 调用工具后根据结果推理，然后给出最终答案");
             sb.AppendLine();
             sb.AppendLine($"沟通风格：{request.CommunicationStyle ?? "专业简洁"}");
             sb.AppendLine($"决策方式：{request.DecisionMaking ?? "理性分析"}");
