@@ -313,21 +313,52 @@ namespace Crew.App
                 var teamId = root.GetProperty("teamId").GetString() ?? "";
                 var task = root.GetProperty("task").GetString() ?? "";
                 var context = root.TryGetProperty("context", out var ctx) ? ctx.GetString() : "";
+                var sessionName = root.TryGetProperty("sessionName", out var sn) ? sn.GetString() : "";
 
-                // Load agent config
+                // Load data
                 var agents = JsonSerializer.Deserialize<List<Agent>>(
                     _dataService.GetAgents(), opts) ?? new();
+                var teams = JsonSerializer.Deserialize<List<Team>>(
+                    _dataService.GetTeams(), opts) ?? new();
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(
+                    _dataService.GetTasks(), opts) ?? new();
                 var agent = agents.FirstOrDefault(a => a.Id == agentId);
                 if (agent == null) return JsonSerializer.Serialize(new { error = "Agent not found" });
-
+                var team = teams.FirstOrDefault(t => t.Id == teamId);
                 var settings = JsonSerializer.Deserialize<AppSettings>(
                     _dataService.GetSettings(), opts);
                 if (settings == null) return JsonSerializer.Serialize(new { error = "Settings not found" });
 
-                // Build AgentLoopRequest for deep thinking
+                // Build rich context
+                var teamCtx = new List<string>();
+                // 1) Team members
+                if (team != null)
+                {
+                    teamCtx.Add("团队成员：");
+                    foreach (var m in team.Members)
+                    {
+                        var a = agents.FirstOrDefault(x => x.Id == m.AgentId);
+                        teamCtx.Add($"- {(m.IsManager ? "👑" :"")} {a?.Name ?? m.AgentId}: {a?.Description ?? ""}");
+                    }
+                }
+                // 2) Task status
+                var teamTasks = tasks.Where(t => t.TeamId == teamId).ToList();
+                if (teamTasks.Count > 0)
+                {
+                    teamCtx.Add("\n当前任务状态：");
+                    foreach (var t in teamTasks)
+                        teamCtx.Add($"- {t.Title} [{t.Status}] ({t.Phase})");
+                }
+                // 3) Session
+                if (!string.IsNullOrEmpty(sessionName))
+                    teamCtx.Add($"\n当前会话：{sessionName}");
+
+                var fullTask = $"你所在团队：{team?.Name ?? ""}\n{string.Join("\n", teamCtx)}\n\n---\n协作群最近对话：\n{context}\n\n---\n当前任务：\n{task}\n\n在私有工作区深入思考并执行。可以使用工具（read_file, write_file, list_files, execute_command, web_search）。完成思考后，给出对协作群最合适的回复（简洁、专业、有建设性）。";
+
+                // Run Agent Loop
                 var loopReq = new AgentLoopRequest
                 {
-                    Task = $"任务背景：\n{context}\n\n当前任务：\n{task}\n\n请在私有工作区深入思考并执行。可以使用工具辅助。完成后给出详细结果。",
+                    Task = fullTask,
                     AgentName = agent.Name,
                     AgentDescription = agent.Description ?? "",
                     CommunicationStyle = agent.Personality?.CommunicationStyle ?? "专业",
@@ -342,27 +373,53 @@ namespace Crew.App
                 var result = await _aiService.RunAgentLoopAsync(loopReq, settings, null, cts.Token);
 
                 // Parse result
-                string finalText;
+                string rawText;
                 try
                 {
                     using var resultDoc = JsonDocument.Parse(result);
-                    finalText = resultDoc.RootElement.TryGetProperty("result", out var r)
-                        ? r.GetString() ?? result
-                        : result;
+                    rawText = resultDoc.RootElement.TryGetProperty("result", out var r)
+                        ? r.GetString() ?? result : result;
                 }
-                catch { finalText = result; }
+                catch { rawText = result; }
 
-                // Save to workspace
-                var wsMsg = JsonSerializer.Serialize(new
+                // Save raw thinking to workspace
+                _dataService.SaveWorkspaceMessage(JsonSerializer.Serialize(new
                 {
-                    agentId, teamId,
-                    role = "assistant",
-                    content = $"[Agent Loop 执行结果]\n\n{finalText}"
-                });
-                _dataService.SaveWorkspaceMessage(wsMsg);
+                    agentId, teamId, role = "assistant",
+                    content = $"[Agent Loop 执行结果]\n\n{rawText}",
+                    sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null,
+                    sessionName
+                }));
+
+                // Final polish: make one quick call to produce a chat-friendly response
+                string finalText = rawText;
+                try
+                {
+                    var polishReq = new AiRequest
+                    {
+                        Messages = new List<ConversationMessage>
+                        {
+                            new() { Role = "system", Content = $"你是{agent.Name}。你刚在私有工作区完成了深度思考，现在需要在协作群里回复。你的思考结果是：\n\n{rawText}\n\n请基于以上思考，生成一条适合在协作群中发送的回复。要求：简洁、专业、有建设性。如果是简单任务直接给答案，如果是复杂任务给出结论和下一步建议。80-200字。" }
+                        },
+                        ModelId = agent.Config.ModelId ?? settings.DefaultModel,
+                        Temperature = 0.5,
+                        MaxTokens = 300
+                    };
+                    var polishResult = await _aiService.CallAsync("callAi",
+                        JsonSerializer.Serialize(polishReq),
+                        _dataService.GetSettings());
+                    try
+                    {
+                        using var pd = JsonDocument.Parse(polishResult);
+                        if (pd.RootElement.TryGetProperty("result", out var pr))
+                            finalText = pr.GetString() ?? rawText;
+                    }
+                    catch { finalText = rawText; }
+                }
+                catch { /* on polish failure, use raw text */ }
 
                 Log.Information("Agent workspace execution: {Agent} completed task", agent.Name);
-                return JsonSerializer.Serialize(new { result = finalText });
+                return JsonSerializer.Serialize(new { result = finalText, rawResult = rawText });
             }
             catch (Exception ex)
             {

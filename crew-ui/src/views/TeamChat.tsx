@@ -198,7 +198,7 @@ export default function TeamChat() {
               saveWorkspaceMessage(agent.id, teamId, 'user', taskText, sessionId, sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
               const { bridgeSend } = await import('../utils/bridge');
               bridgeSend('runAgentInWorkspace', JSON.stringify({
-                agentId: agent.id, teamId, task: taskText, context: history
+                agentId: agent.id, teamId, task: taskText, context: history, sessionId, sessionName: sessions.find(s => s.id === sessionId)?.name || ''
               })).then(async (result: unknown) => {
                 const data = result as Record<string, unknown> | null;
                 if (data?.result) {
@@ -241,7 +241,7 @@ export default function TeamChat() {
       // Run agent loop in workspace (not streaming to chat)
       const { bridgeSend } = await import('../utils/bridge');
       const wsPromise = bridgeSend('runAgentInWorkspace', JSON.stringify({
-        agentId: agent.id, teamId, task: taskText, context: history
+        agentId: agent.id, teamId, task: taskText, context: history, sessionId, sessionName: sessions.find(s => s.id === sessionId)?.name || ''
       }));
 
       // Show brief thinking indicator in chat
@@ -326,7 +326,7 @@ export default function TeamChat() {
           bridgeSend('runAgentInWorkspace', JSON.stringify({
             agentId: target.id, teamId,
             task: instruction || msg.content,
-            context: history
+            context: history, sessionId, sessionName: sessions.find(s => s.id === sessionId)?.name || ''
           })).then(async (result: unknown) => {
             const data = result as Record<string, unknown> | null;
             if (data?.result) {
