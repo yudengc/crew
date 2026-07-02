@@ -247,44 +247,57 @@ export default function TeamChat() {
         }
       }
 
-      // Manager (or default manager routing): AI response in chat
-      const streamId = crypto.randomUUID();
+      // Manager: think in workspace, only summary in chat
       setThinking(prev => [...prev, agent.name]);
+
+      // Save task to workspace
+      const taskText = cleanText || input;
+      saveWorkspaceMessage(agent.id, teamId, 'user',
+        `[协作群任务]\n${taskText}`, sessionId,
+        sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
+
+      // Run agent loop in workspace (not streaming to chat)
+      const { bridgeSend } = await import('../utils/bridge');
+      const wsPromise = bridgeSend('runAgentInWorkspace', JSON.stringify({
+        agentId: agent.id, teamId, task: taskText, context: history
+      }));
+
+      // Show brief thinking indicator in chat
+      const streamId = crypto.randomUUID();
       const streamMsg: StreamingMsg = {
         id: streamId, agentId: agent.id, agentName: agent.name,
-        avatar: agent.avatar, content: '', timestamp: new Date().toISOString(), done: false,
+        avatar: agent.avatar, content: '正在思考...', timestamp: new Date().toISOString(), done: false,
       };
       setStreaming(prev => [...prev, streamMsg]);
 
       try {
-        const teamMembersCtx = `你所在团队：${team.name}\n${teamContext}`;
-        const prompt = m.isManager
-          ? `你是团队「${team.name}」的管理者「${agent.name}」。\n\n${teamMembersCtx}\n\n你可以用 @成员名 给团队成员分配任务。\n\n协作群最近对话：\n${history}\n\n作为管理者，请：\n1. 分析当前需求\n2. 如有必要，@具体成员分配任务（如 \"@代码助手 请实现XX模块\"）\n3. 说明决策理由\n\n100-200字。`
-          : `你是「${agent.name}」，${agent.description || '团队成员'}。\n\n${teamMembersCtx}\n\n你可以用 @成员名 与其他成员协作。\n\n${history}\n\n报告工作进展，如需协助请 @其他成员。80-150字。`;
+        const result = await wsPromise as Record<string, unknown> | null;
+        if (controller.signal.aborted) { setThinking(prev => prev.filter(n => n !== agent.name)); setStreaming(prev => prev.filter(s => s.id !== streamId)); return null; }
 
-        const fullText = await streamCallAi(
-          prompt,
-          (chunk) => {
-            if (controller.signal.aborted) return;
-            setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, content: s.content + chunk } : s));
-          },
-          agent.config,
-        );
-        if (controller.signal.aborted) return null;
         setStreaming(prev => prev.map(s => s.id === streamId ? { ...s, done: true } : s));
-        if (fullText.trim()) {
+
+        if (result?.result) {
+          await saveWorkspaceMessage(agent.id, teamId, 'assistant',
+            String(result.result), sessionId,
+            sessions.find(s => s.id === sessionId)?.name || '').catch(() => {});
+
+          // Post brief summary to chat (not the full thinking)
+          const fullText = String(result.result);
+          const summary = m.isManager
+            ? (fullText.length > 200 ? fullText.slice(0, 200) + '...（详见工作区）' : fullText)
+            : (fullText.length > 150 ? fullText.slice(0, 150) + '...' : fullText);
+
           const am: ChatMessage = {
             id: crypto.randomUUID(), teamId, agentId: agent.id,
             agentName: agent.name, avatar: agent.avatar,
-            content: fullText, isUser: false, timestamp: new Date().toISOString(),
+            content: summary, isUser: false, timestamp: new Date().toISOString(),
           };
-          await sendChatMessage(teamId, agent.id, agent.name, fullText, false, am.id, agent.avatar);
+          await sendChatMessage(teamId, agent.id, agent.name, summary, false, am.id, agent.avatar, sessionId);
           return am;
         }
         return null;
       } catch (err) {
         if (controller.signal.aborted) return null;
-        toast.error(`${agent.name} 回复失败`);
         return null;
       } finally {
         setThinking(prev => prev.filter(n => n !== agent.name));
