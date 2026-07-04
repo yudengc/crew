@@ -296,7 +296,7 @@ namespace Crew.App
                 var root = doc.RootElement;
                 var agentId = root.GetProperty("agentId").GetString() ?? "";
                 var teamId = root.GetProperty("teamId").GetString() ?? "";
-                var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                var sessionId = root.TryGetProperty("sessionId", out var sid2) ? sid.GetString() : null;
                 return _dataService.GetWorkspace(agentId, teamId, sessionId);
             }
             catch { return "{}"; }
@@ -356,7 +356,7 @@ private string GetAllWorkspaceHelper(string? data)
                     }
                 }
                 // 2) Task status — in-progress tasks, scoped to current session
-                var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                var sessionId = root.TryGetProperty("sessionId", out var sid2) ? sid.GetString() : null;
                 var activeTasks = tasks.Where(t =>
                     t.TeamId == teamId &&
                     t.Status == "in_progress" &&
@@ -411,7 +411,7 @@ private string GetAllWorkspaceHelper(string? data)
                 {
                     agentId, teamId, role = "assistant",
                     content = $"[Agent Loop 执行结果]\n\n{rawText}",
-                    sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null,
+                    sessionId = root.TryGetProperty("sessionId", out var sid2) ? sid.GetString() : null,
                     sessionName
                 }));
 
