@@ -73,6 +73,7 @@ export interface TaskItem {
   title: string;
   description: string;
   teamId: string;
+  sessionId?: string;
   teamMembers: TeamMember[];
   status: 'pending' | 'in_progress' | 'completed';
   result: string;

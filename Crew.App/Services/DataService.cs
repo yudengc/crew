@@ -601,6 +601,7 @@ namespace Crew.App.Services
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
         public string TeamId { get; set; } = "";
+        public string? SessionId { get; set; }
         public List<TeamMember> TeamMembers { get; set; } = new();
         public string Status { get; set; } = "pending";
         public string Result { get; set; } = "";

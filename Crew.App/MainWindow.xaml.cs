@@ -355,8 +355,13 @@ private string GetAllWorkspaceHelper(string? data)
                         teamCtx.Add($"- {(m.IsManager ? "👑" :"")} {a?.Name ?? m.AgentId}: {a?.Description ?? ""}");
                     }
                 }
-                // 2) Task status — only show in-progress tasks, not session-specific
-                var activeTasks = tasks.Where(t => t.TeamId == teamId && t.Status == "in_progress").ToList();
+                // 2) Task status — in-progress tasks, scoped to current session
+                var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                var activeTasks = tasks.Where(t =>
+                    t.TeamId == teamId &&
+                    t.Status == "in_progress" &&
+                    (string.IsNullOrEmpty(sessionId) || t.SessionId == sessionId)
+                ).ToList();
                 if (activeTasks.Count > 0)
                 {
                     teamCtx.Add("\n进行中的任务：");
